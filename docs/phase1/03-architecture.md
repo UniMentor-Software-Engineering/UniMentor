@@ -86,11 +86,11 @@ classDiagram
         -String degree
         -int year
         +searchTutors(subject) List~TutorProfile~
-        +bookSlot(slot, topic) Appointment
+        +bookSession(tutor, type, startUtc, topic) Appointment
     }
     class Tutor {
-        +publishSlot(start, end) AvailabilitySlot
-        +removeSlot(slotId) void
+        +publishWindow(start, end) AvailabilityWindow
+        +removeWindow(windowId) void
         +recordNotes(appointment, notes) SessionRecord
     }
     class Admin {
@@ -109,16 +109,26 @@ classDiagram
         -int id
         -String name
     }
-    class AvailabilitySlot {
+    class AvailabilityWindow {
         -int id
         -DateTime startUtc
         -DateTime endUtc
-        -SlotStatus status
         +overlaps(other) boolean
-        +isBookable(now) boolean
+        +contains(startUtc, endUtc) boolean
+    }
+    class SessionType {
+        <<enumeration>>
+        QUICK_CHECK
+        STANDARD
+        DEEP_DIVE
+        -int maxMinutes
+        +getMaxMinutes() int
+        +endFor(startUtc) DateTime
     }
     class Appointment {
         -int id
+        -DateTime startUtc
+        -DateTime endUtc
         -String topic
         -AppointmentStatus status
         -DateTime createdAt
@@ -152,8 +162,9 @@ classDiagram
     User <|-- Admin
     Tutor "1" -- "1" TutorProfile : has
     TutorProfile "M" -- "N" Subject : teaches
-    Tutor "1" -- "0..*" AvailabilitySlot : publishes
-    AvailabilitySlot "1" -- "0..1" Appointment : reserved by
+    Tutor "1" -- "0..*" AvailabilityWindow : publishes
+    AvailabilityWindow "1" -- "0..*" Appointment : contains
+    SessionType "1" -- "0..*" Appointment : defines duration of
     Student "1" -- "0..*" Appointment : books
     Tutor "1" -- "0..*" Appointment : attends
     Appointment "1" -- "0..1" SessionRecord : documented in
@@ -164,8 +175,9 @@ classDiagram
 Notes on the model:
 
 - **M:N** appears between `TutorProfile` and `Subject` (a tutor teaches many subjects and a subject has many tutors); it is stored in a join table `tutor_subject`.
-- **1:N** appears between `Tutor` and `AvailabilitySlot`, `Student` and `Appointment`, and `Tutor` and `Appointment`.
-- **1:0..1** between `AvailabilitySlot` and `Appointment` reflects BR-12: a slot has at most one active booking. Cancelled appointments are kept in history, so the database enforces this on *active* appointments only (see 3.5).
+- **1:N** appears between `Tutor` and `AvailabilityWindow`, `AvailabilityWindow` and `Appointment`, `SessionType` and `Appointment`, `Student` and `Appointment`, and `Tutor` and `Appointment`.
+- A tutor publishes **availability windows** (for example Tuesday 16:00–18:00). A student chooses a `SessionType` and a start time, and the appointment occupies `[startUtc, startUtc + maxMinutes)` inside one window (BR-27, BR-28). Several appointments of different types can share one window as long as they do not overlap (BR-12). Cancelled appointments are kept in history, so the database enforces non-overlap on *active* appointments only (see ADR-008).
+- `SessionType` has three values (5, 30 and 60 minutes). It is stored in a reference table so durations can change without code changes (ADR-012).
 - Times are stored in UTC (`startUtc`, `endUtc`) and converted to `User.timeZone` for display (ADR-007).
 
 ### Core database tables (summary)
@@ -175,8 +187,9 @@ Notes on the model:
 | `users` | id, name, email (unique), password_hash, role, active, time_zone | Single table for all roles |
 | `tutor_profiles` | user_id (PK/FK), bio, meeting_url | One per tutor |
 | `subjects`, `tutor_subjects` | subject_id, user_id | M:N join |
-| `availability_slots` | id, tutor_id, start_utc, end_utc, status | `tstzrange` exclusion per tutor |
-| `appointments` | id, slot_id, student_id, tutor_id, time_range, status, topic | Exclusion constraints prevent overlaps |
+| `session_types` | code (`QUICK_CHECK`, `STANDARD`, `DEEP_DIVE`), name, max_minutes (5, 30, 60) | Reference table, seeded by a migration |
+| `availability_windows` | id, tutor_id, start_utc, end_utc | `tstzrange` exclusion per tutor (windows do not overlap) |
+| `appointments` | id, window_id, session_type, student_id, tutor_id, time_range, status, topic | `time_range` is computed from start and the type's duration; exclusion constraints prevent overlaps; the service checks the block lies inside the window |
 | `session_records` | id, appointment_id (unique), tutor_notes, outcome | |
 | `feedback` | id, session_record_id (unique), rating, comment | |
 | `email_outbox` | id, type, to_address, payload, status, attempts, send_after | Async notifications |
@@ -200,22 +213,23 @@ sequenceDiagram
     participant W as Email worker
     participant MAIL as Email provider
 
-    S->>UI: Select slot and press "Book"
-    UI->>API: POST /api/appointments {slotId, topic} + token
-    API->>API: Authenticate, check role = Student, validate input
-    API->>SVC: book(studentId, slotId, topic)
+    S->>UI: Choose session type (5 / 30 / 60 min), pick start time, press "Book"
+    UI->>API: POST /api/appointments {tutorId, sessionType, startUtc, topic} + token
+    API->>API: Authenticate, check role = Student, validate input and session type
+    API->>SVC: book(studentId, tutorId, sessionType, startUtc, topic)
+    SVC->>SVC: endUtc = startUtc + type.maxMinutes (BR-27), check lead time (BR-14)
     SVC->>REP: begin transaction
-    SVC->>REP: lock slot, check status and lead time (BR-14)
-    REP->>DB: SELECT ... FOR UPDATE
-    DB-->>REP: slot row
-    SVC->>REP: insert appointment, mark slot taken
-    REP->>DB: INSERT appointment (exclusion constraint checks overlaps)
-    alt Slot taken or overlap (BR-12, BR-13)
-        DB-->>REP: constraint violation
+    SVC->>REP: find tutor's window containing [startUtc, endUtc] (BR-28)
+    REP->>DB: SELECT window ... FOR UPDATE
+    DB-->>REP: window row
+    SVC->>REP: insert appointment with time_range
+    REP->>DB: INSERT appointment (exclusion constraints check overlaps)
+    alt No window contains the block, or time taken, or overlap (BR-12, BR-13, BR-28)
+        DB-->>REP: no window / constraint violation
         REP-->>SVC: conflict error (rollback)
         SVC-->>API: ConflictError
         API-->>UI: 409 Conflict
-        UI-->>S: "Slot no longer available"
+        UI-->>S: "That time is no longer available"
     else Success
         SVC->>REP: insert 2 rows in email_outbox (same transaction)
         REP->>DB: COMMIT
@@ -290,9 +304,9 @@ sequenceDiagram
 The proposal flags the calendar as the main risk. The design reduces it with four rules:
 
 1. **Store everything in UTC** (`timestamptz`), convert only at the edges. This avoids daylight-saving bugs (NFR-R2).
-2. **Let the database enforce conflicts**, not only the application code. Application checks alone have a race condition: two requests can both see the slot as free. A PostgreSQL *exclusion constraint* makes the overlap impossible even under concurrency (ADR-008).
-3. **Use fixed, explicit slots** published by the tutor instead of recurring-rule expansion (RRULE) in the first version. It is simpler to reason about and test. Recurring availability is a possible later improvement.
-4. **Build the calendar prototype first**, as the proposal's mitigation says: a small module with the slot and booking logic, its tests (including DST dates and concurrent bookings) and no UI, before integrating it in the platform.
+2. **Let the database enforce conflicts**, not only the application code. Application checks alone have a race condition: two requests can both see the time as free. A PostgreSQL *exclusion constraint* makes the overlap impossible even under concurrency (ADR-008).
+3. **Use explicit availability windows plus type-driven durations.** The tutor publishes concrete windows (no recurring-rule expansion/RRULE in the first version), and the session type chosen by the student (5, 30 or 60 min) decides how much of a window a booking occupies (ADR-012). Start times are offered on a fixed grid to avoid fragmentation. Recurring availability is a possible later improvement.
+4. **Build the calendar prototype first**, as the proposal's mitigation says: a small module with the window and booking logic, its tests (including DST dates and concurrent bookings) and no UI, before integrating it in the platform.
 
 ---
 
@@ -365,12 +379,12 @@ Each ADR states **Context** (the constraint), **Options considered** (at least t
 
 ### ADR-008: Database exclusion constraints to prevent double booking
 
-- **Context:** Two students may press "Book" on the same slot at the same moment. Checking availability in application code and then inserting is a race condition (G2, NFR-R1).
+- **Context:** Two students may press "Book" for the same tutor at overlapping times (for example a 30-minute and a 5-minute session that intersect). Checking availability in application code and then inserting is a race condition (G2, NFR-R1, NFR-R1b).
 - **Options considered:**
   1. **Application-level check only** (SELECT, then INSERT).
-  2. **Pessimistic row locking** (`SELECT ... FOR UPDATE` on the slot).
+  2. **Pessimistic row locking** (`SELECT ... FOR UPDATE` on the tutor's availability window).
   3. **Database exclusion constraint** on `(tutor_id, time_range)` for active appointments, plus a similar one for `(student_id, time_range)`, combined with option 2.
-- **Outcome:** Option 3 (with option 2 for clean error handling). Active appointments are those with status other than `cancelled`; cancelled ones stay in the history without blocking the slot. **Impact:** conflicts are impossible by construction, even if application code has a bug; the service must translate the constraint-violation error into a friendly `409 Conflict`, and tests must call the database directly to prove the constraint.
+- **Outcome:** Option 3 (with option 2 for clean error handling). Active appointments are those with status other than `cancelled`; cancelled ones stay in the history without blocking the time. **Impact:** conflicts are impossible by construction, even if application code has a bug; the service must translate the constraint-violation error into a friendly `409 Conflict`, and tests must call the database directly to prove the constraint.
 
 ### ADR-009: Email through an outbox table and a background worker
 
@@ -399,6 +413,15 @@ Each ADR states **Context** (the constraint), **Options considered** (at least t
   3. **An ORM with auto-sync** (e.g. Sequelize `sync`).
 - **Outcome:** Option 2 with plain SQL migrations, because we rely on PostgreSQL-specific features (range types, exclusion constraints) that ORMs support poorly. **Impact:** reproducible schemas in every environment; the team needs the discipline to never edit a committed migration.
 
+### ADR-012: Three session types with type-driven duration inside tutor availability windows
+
+- **Context:** Students must be able to request three kinds of tutoring: a Quick Check of at most 5 minutes (a short talk about current academic performance), a Standard session of at most 30 minutes (doubts about exercises) and a Deep Dive of at most 1 hour (deeper doubts). The calendar must reserve the right amount of time for each, without conflicts (G2) and without making the tutor's availability hard to manage.
+- **Options considered:**
+  1. **Fixed slots per type:** the tutor publishes separate 5, 30 and 60-minute slots in advance.
+  2. **Availability windows with type-driven duration:** the tutor publishes windows; the student chooses a type and a start time, and the system reserves `start + type duration` inside the window.
+  3. **One generic slot length** (for example 30 min) with the type stored only as a label.
+- **Outcome:** Option 2. Option 1 forces tutors to pre-divide their time into three kinds of slots and leaves unusable gaps; option 3 does not reserve the real time of a 5 or 60-minute session. With option 2 the tutor only says "I am free from 16:00 to 18:00", and the type decides the block. Types live in a `session_types` reference table (code, name, `max_minutes`), and each appointment stores its type and its computed time range. **Impact:** flexible and easy for tutors; the conflict rule (ADR-008) works on time ranges of any length, so mixed sessions are safe; start times are offered on a fixed grid (`[TO CONFIRM: 5 min]`) to avoid fragmentation; the booking service is more complex than with fixed slots (it must find a window that contains the whole block), so it needs the thorough tests defined in NFR-R1b. Durations are **maximums**: a session may end earlier but the reserved block stays the same, and changing a duration is a data change, not a code change.
+
 ---
 
 ## 3.6 Deployment View
@@ -424,7 +447,7 @@ backend/
   src/
     routes/          # API layer: route definitions, validation, auth middleware
     services/        # business rules: BookingService, AvailabilityService, AuthService...
-    repositories/    # SQL access: UserRepository, SlotRepository, AppointmentRepository...
+    repositories/    # SQL access: UserRepository, AvailabilityWindowRepository, AppointmentRepository...
     workers/         # email outbox worker, reminder scheduler
     domain/          # entities and enums (Role, AppointmentStatus...)
     config/          # environment configuration
@@ -447,5 +470,6 @@ docs/phase1/
 | NFR-S1, NFR-S3, BR-04 | ADR-006 JWT with roles; API-layer middleware |
 | NFR-M1, NFR-M2 | Layered architecture (3.1); services testable without HTTP |
 | NFR-K1 | ADR-005 Vercel and Render free tiers |
+| FR-11, BR-27 to BR-30 | `SessionType` and `session_types` table, ADR-012; booking sequence 3.3.1 |
 | G3, BR-06 | `TutorProfile` and `Subject` M:N model (3.2) |
 | G4, BR-19 | `SessionRecord` and `Feedback` classes |

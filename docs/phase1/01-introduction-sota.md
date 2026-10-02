@@ -39,7 +39,17 @@ The process today typically looks like this:
 
 ### Proposed response
 
-UniMentor is a web platform that centralises the whole cycle: a tutor publishes expertise and availability, a student finds a suitable tutor and books a free slot in an interactive calendar without conflicts, both receive email confirmations and reminders, and after the session notes and feedback are stored in a personal history. To keep the project manageable, video calls (external Meet/Zoom links), payments and real-time chat are explicitly out of scope.
+UniMentor is a web platform that centralises the whole cycle: a tutor publishes expertise and availability, a student finds a suitable tutor and books a session in an interactive calendar without conflicts, both receive email confirmations and reminders, and after the session notes and feedback are stored in a personal history.
+
+When booking, the student chooses one of three **session types**, so that the length of the session matches the need:
+
+| Session type | Maximum duration | Purpose |
+|---|---|---|
+| **Quick Check** | 5 minutes | A short conversation in which the tutor asks the student about their current academic performance and detects problems early. |
+| **Standard Tutoring** | 30 minutes | Solving doubts about exercises and course material. |
+| **Deep Dive** | 1 hour | Solving deeper doubts that need more time, such as a whole topic or exam preparation. |
+
+This gives students a low-effort way to start (a five-minute check) and a path to longer help, and it lets tutors manage their time in predictable blocks. To keep the project manageable, video calls (external Meet/Zoom links), payments and real-time chat are explicitly out of scope.
 
 ---
 
@@ -49,8 +59,8 @@ The five goals below refine the three project objectives of the proposal (search
 
 | # | Goal | KPI | Target | Measured by | Deadline |
 |---|---|---|---|---|---|
-| **G1** | **Fast booking.** A student can find a tutor and book a session without any external messaging. | Time from landing on the search page to a confirmed booking | ≤ 3 minutes (median) and ≤ 6 clicks | Usability test with 5 students, stopwatch plus click count | End of first functional release |
-| **G2** | **No schedule conflicts.** The system never lets two sessions overlap for the same tutor or the same student. | Double bookings produced | 0 in 100 % of automated concurrency tests (50 simultaneous requests for the same slot yield exactly 1 booking) | Automated concurrency test on the booking endpoint | Before first release |
+| **G1** | **Fast booking.** A student can find a tutor, choose a session type (Quick Check, Standard or Deep Dive) and book it without any external messaging. | Time from landing on the search page to a confirmed booking | ≤ 3 minutes (median) and ≤ 6 clicks | Usability test with 5 students, stopwatch plus click count | End of first functional release |
+| **G2** | **No schedule conflicts.** The system never lets two sessions overlap for the same tutor or the same student. | Double bookings produced | 0 in 100 % of automated concurrency tests (50 simultaneous requests for the same time yield exactly 1 booking) | Automated concurrency test on the booking endpoint | Before first release |
 | **G3** | **Good tutor-student matching.** Tutors describe their expertise so students can search by subject. | % of tutor profiles with at least 1 subject and a short description; % of searches by subject that return at least one tutor | ≥ 90 % complete profiles; ≥ 80 % of subject searches non-empty (*pilot*) | Database query plus search logs | 4 weeks after pilot start |
 | **G4** | **Centralised session record.** Completed sessions carry notes and feedback. | % of completed sessions with at least a tutor note or a student rating | ≥ 70 % (*pilot*) | Database query | End of pilot semester |
 | **G5** | **Reliable and responsive service.** The system answers fast and notifies on time. | (a) 95th-percentile latency of availability and booking endpoints; (b) share of confirmation emails delivered within 60 s; (c) share of reminders sent 24 h ± 15 min before the session | (a) < 200 ms at 50 concurrent users; (b) ≥ 95 %; (c) ≥ 95 % | Load test (e.g. k6) and email-log analysis | End of first functional release |
@@ -79,6 +89,7 @@ We compared UniMentor with two products that cover different parts of the proble
 |---|---|---|---|
 | **Primary purpose** | Scheduling meetings through booking links | Marketplace where students hire private tutors | University-run tutoring management |
 | **Calendar and booking** | Yes: availability rules, calendar sync, reminders, group events | Booking and scheduling within the platform | Yes: tutor availability, student booking, conflict prevention |
+| **Session types** | Several event types with different durations on paid plans (the free plan allows one); durations are generic, not tied to tutoring purposes | Lesson length is agreed per tutor and billed hourly; no purpose-based types | Three predefined types by purpose: Quick Check (5 min), Standard (30 min), Deep Dive (60 min) |
 | **Tutor/mentor profiles by expertise** | No, it is not a tutoring product; there is no subject search | Yes: profiles, subjects, ratings, search | Yes: profile with areas of expertise, searchable by subject |
 | **Session notes, feedback and progress** | No (meeting scheduling only) | Session reports and reviews; reports exist mainly for billing | Yes: notes, feedback and history are a core feature |
 | **Roles** | Hosts and invitees; team roles on paid plans | Students and tutors | Student, Tutor, Admin (university oversight) |
