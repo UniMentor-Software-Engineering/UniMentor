@@ -1,0 +1,147 @@
+/* Layout of the UniMentor documentation PDFs (same look as the Phase 1 documents). */
+:root {
+  --navy: #1b2a4e;
+  --teal: #0f8a96;
+  --text: #2b2f36;
+  --muted: #5d6b85;
+  --rule: #e3e7ee;
+  --zebra: #f6f8fb;
+  --code: #b5803a;
+  --code-bg: #f6f8fb;
+}
+
+@page {
+  size: A4;
+  margin: 22mm 20mm 20mm 20mm;
+}
+
+html {
+  font-family: "Segoe UI", system-ui, sans-serif;
+  font-size: 10.5pt;
+  line-height: 1.62;
+  color: var(--text);
+}
+
+body {
+  margin: 0;
+}
+
+.eyebrow {
+  margin: 0 0 6pt;
+  font-size: 8.5pt;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--teal);
+}
+
+h1.title {
+  margin: 0 0 10pt;
+  font-size: 25pt;
+  line-height: 1.2;
+  color: var(--navy);
+}
+
+.subtitle {
+  margin: 0;
+  font-size: 11pt;
+  color: var(--muted);
+}
+
+hr.title-rule {
+  margin: 20pt 0 24pt;
+  border: 0;
+  border-top: 1px solid var(--rule);
+}
+
+h2 {
+  margin: 22pt 0 10pt;
+  font-size: 15pt;
+  color: var(--navy);
+  break-after: avoid;
+}
+
+h3 {
+  margin: 18pt 0 8pt;
+  font-size: 12pt;
+  color: var(--navy);
+  break-after: avoid;
+}
+
+p {
+  margin: 0 0 9pt;
+}
+
+strong {
+  color: var(--navy);
+}
+
+ul,
+ol {
+  margin: 0 0 9pt;
+  padding-left: 20pt;
+}
+
+li {
+  margin-bottom: 3pt;
+}
+
+code {
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 0.92em;
+  color: var(--code);
+}
+
+pre {
+  margin: 0 0 10pt;
+  padding: 9pt 11pt;
+  background: var(--code-bg);
+  border: 1px solid var(--rule);
+  border-radius: 4pt;
+  font-size: 8.4pt;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+pre code {
+  color: var(--text);
+  font-size: inherit;
+}
+
+table {
+  width: 100%;
+  margin: 4pt 0 12pt;
+  border-collapse: collapse;
+  font-size: 9pt;
+  line-height: 1.45;
+}
+
+thead {
+  display: table-header-group;
+}
+
+th {
+  padding: 6pt 8pt;
+  background: var(--navy);
+  color: #fff;
+  font-weight: 700;
+  text-align: left;
+}
+
+td {
+  padding: 6pt 8pt;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+}
+
+tr {
+  break-inside: avoid;
+}
+
+tbody tr:nth-child(even) td {
+  background: var(--zebra);
+}
+
+td:first-child {
+  font-weight: 600;
+  color: var(--navy);
+}
