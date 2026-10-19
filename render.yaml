@@ -1,0 +1,32 @@
+# Render Blueprint (ADR 7): backend API + managed PostgreSQL.
+# In Render: New > Blueprint > select this repository. Render creates both resources
+# and redeploys the API automatically on every push to main.
+services:
+  - type: web
+    name: unimentor-api
+    runtime: node
+    plan: free
+    rootDir: backend
+    # Production install: exact versions from package-lock.json, without devDependencies.
+    buildCommand: npm ci --omit=dev
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: unimentor-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      # Set manually in the Render dashboard to the Vercel URL, e.g. https://unimentor.vercel.app
+      - key: FRONTEND_ORIGIN
+        sync: false
+
+databases:
+  - name: unimentor-db
+    plan: free
+    databaseName: unimentor
+    user: unimentor

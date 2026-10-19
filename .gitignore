@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Environment variables (secrets). Only .env.example is committed.
+.env
+.env.*
+!.env.example
+
+# Test coverage
+coverage/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editors and OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Vercel local config
+.vercel/
