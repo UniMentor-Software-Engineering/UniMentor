@@ -27,6 +27,39 @@ npm run dev               # http://localhost:3000/api/health
 
 Frontend: serve the `frontend/` folder with any static server on port 5500 (e.g. the VS Code "Live Server" extension, or `npx serve frontend -l 5500`) and open `http://localhost:5500`. The status card shows whether the API and the database are reachable.
 
+### Windows (PowerShell)
+
+Requirements: [Node.js 22+](https://nodejs.org) and [Docker Desktop](https://www.docker.com/products/docker-desktop/) (used for PostgreSQL, so it does not have to be installed).
+
+1. **Database.** Start Docker Desktop and wait until the engine is running. The first time, create the container (the credentials match `backend/.env.example`):
+
+   ```powershell
+   docker run -d --name unimentor-pg -e POSTGRES_USER=unimentor -e POSTGRES_PASSWORD=unimentor -e POSTGRES_DB=unimentor -p 5432:5432 postgres:17-alpine
+   ```
+
+   On later days, `docker start unimentor-pg` is enough. If port 5432 is already in use, map another one (`-p 5433:5432`) and change the port in `DATABASE_URL`.
+
+2. **Backend.** From the repository root:
+
+   ```powershell
+   cd backend
+   Copy-Item .env.example .env
+   npm install
+   npm run dev
+   ```
+
+   Check `http://localhost:3000/api/health`.
+
+3. **Frontend.** In a second terminal, from the repository root:
+
+   ```powershell
+   npx serve frontend -l 5500
+   ```
+
+   Open `http://localhost:5500`. It must be port 5500 (or 127.0.0.1:5500), which is the origin allowed by CORS in `.env` (`FRONTEND_ORIGIN`).
+
+To stop everything: `Ctrl+C` in both terminals and `docker stop unimentor-pg`.
+
 ## Scripts (backend)
 
 | Command | What it does |

@@ -111,6 +111,8 @@ Para tener PostgreSQL en local sin instalarlo, con Docker:
 docker run -d --name unimentor-pg -e POSTGRES_USER=unimentor -e POSTGRES_PASSWORD=unimentor -e POSTGRES_DB=unimentor -p 5432:5432 postgres:17-alpine
 ```
 
+En Windows (PowerShell), `cp` es `Copy-Item`. Los pasos completos para Windows, frontend incluido, están en el `README.md` (sección *Run locally > Windows*).
+
 **Para añadir un caso de uso**, copiad el patrón del módulo de salud:
 
 1. `src/repositories/xxxRepository.js`: SQL con parámetros (`$1, $2...`). Es el **único** sitio con SQL.
