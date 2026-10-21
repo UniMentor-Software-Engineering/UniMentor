@@ -82,6 +82,8 @@ Se ha probado de punta a punta con un PostgreSQL real: navegador → `api.js` �
 
 ### P2 (también esta semana)
 
+> Hay una primera entrega en `main` (21 oct), pero le faltan cosas. La lista completa de correcciones está en [`REVISION-P2.md`](REVISION-P2.md). La sección 1 (esquema) bloquea a P3, P4 y P5.
+
 - [ ] `schema.sql`, migraciones y datos de prueba.
 - [ ] CU-03 y CU-06.
 
