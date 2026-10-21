@@ -12,3 +12,6 @@ const router = Router();
 router.use('/health', healthRoutes);
 
 module.exports = router;
+
+const tutorRoutes = require('./tutorRoutes');
+router.use('/tutors', tutorRoutes);
