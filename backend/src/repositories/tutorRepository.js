@@ -1,8 +1,8 @@
 const db = require('../config/db');
 
 class TutorRepository {
-  async findTutors({ subjectId, search, limit = 10, offset = 0 }) {
-    let query = `
+  async findTutors({ _subjectId, _search, limit = 10, offset = 0 }) {
+    const query = `
       SELECT u.id AS user_id, u.full_name, tp.bio, tp.meeting_url
       FROM users u
       JOIN tutor_profiles tp ON tp.user_id = u.id
