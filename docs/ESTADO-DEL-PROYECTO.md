@@ -87,7 +87,14 @@ Se ha probado de punta a punta con un PostgreSQL real: navegador → `api.js` �
 - [ ] `schema.sql`, migraciones y datos de prueba.
 - [ ] CU-03 y CU-06.
 
-### P3, P4, P5
+### P3
+
+> Hay un primer borrador (22 oct), pero no hace todavía ningún caso de uso. La lista completa está en [`REVISION-P3.md`](REVISION-P3.md). Depende del esquema nuevo de P2 (rama `fix/p2-schema-review`).
+
+- [ ] CU-01, CU-02, CU-13 y CU-14, con los middlewares de JWT, roles y CSRF, el bloqueo tras 5 intentos y los logs de auditoría.
+- [ ] Patrón Chain of Responsibility (para la semana 9).
+
+### P4, P5
 
 - [ ] Sus casos de uso y su patrón de diseño (para la semana 9).
 
