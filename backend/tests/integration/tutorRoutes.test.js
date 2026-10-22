@@ -2,7 +2,6 @@ const request = require('supertest');
 const app = require('../../src/app');
 const tutorService = require('../../src/services/tutorService');
 
-// Mock service layer to run isolated integration tests without requiring an active database
 jest.mock('../../src/services/tutorService');
 
 describe('Tutor Routes Integration Tests', () => {
@@ -24,7 +23,7 @@ describe('Tutor Routes Integration Tests', () => {
 
       tutorService.searchTutors.mockResolvedValue(mockTutors);
 
-      const validSubjectId = 's0000000-0000-0000-0000-000000000001';
+      const validSubjectId = 'd0000000-0000-0000-0000-000000000001';
       const res = await request(app)
         .get(`/api/tutors?subjectId=${validSubjectId}&search=Math&limit=5&offset=0`);
 
@@ -41,19 +40,19 @@ describe('Tutor Routes Integration Tests', () => {
     it('should return 400 on invalid limit', async () => {
       const res = await request(app).get('/api/tutors?limit=invalid');
       expect(res.status).toBe(400);
-      expect(res.body.message || res.body.error).toContain('Limit must be an integer');
+      expect(res.body.error.message).toContain('Limit must be an integer');
     });
 
     it('should return 400 on invalid offset', async () => {
       const res = await request(app).get('/api/tutors?offset=-1');
       expect(res.status).toBe(400);
-      expect(res.body.message || res.body.error).toContain('Offset must be a non-negative integer');
+      expect(res.body.error.message).toContain('Offset must be a non-negative integer');
     });
 
     it('should return 400 on invalid subjectId format', async () => {
       const res = await request(app).get('/api/tutors?subjectId=invalid-uuid-1234');
       expect(res.status).toBe(400);
-      expect(res.body.message || res.body.error).toContain('Invalid subjectId format');
+      expect(res.body.error.message).toContain('Invalid subjectId format');
     });
   });
 
@@ -78,7 +77,7 @@ describe('Tutor Routes Integration Tests', () => {
     it('should return 400 when tutor ID has invalid format', async () => {
       const res = await request(app).get('/api/tutors/not-a-uuid');
       expect(res.status).toBe(400);
-      expect(res.body.message || res.body.error).toContain('Invalid tutor ID');
+      expect(res.body.error.message).toContain('Invalid tutor ID');
     });
   });
 
@@ -87,7 +86,7 @@ describe('Tutor Routes Integration Tests', () => {
       const res = await request(app).put('/api/tutors/profile').send({
         bio: 'Updated bio',
         meetingUrl: 'https://meet.google.com/abc-defg-hij',
-        subjectIds: ['s0000000-0000-0000-0000-000000000001']
+        subjectIds: ['d0000000-0000-0000-0000-000000000001']
       });
 
       expect(res.status).toBe(401);

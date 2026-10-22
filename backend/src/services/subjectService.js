@@ -1,8 +1,9 @@
-// Business Logic layer for the subject catalog.
 const subjectRepository = require('../repositories/subjectRepository');
 
 async function listSubjects() {
-  return subjectRepository.findAll();
+  return await subjectRepository.findAll();
 }
 
-module.exports = { listSubjects };
+module.exports = {
+  listSubjects,
+};
