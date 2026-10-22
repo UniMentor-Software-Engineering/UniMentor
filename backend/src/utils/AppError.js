@@ -7,11 +7,14 @@ class AppError extends Error {
    * @param {string} message Message safe to show to the user
    * @param {string} [code] Optional machine-readable code for the frontend
    */
-  constructor(status, message, code) {
+  constructor(status, message) {
     super(message);
     this.name = 'AppError';
     this.status = status;
-    this.code = code;
+    this.statusCode = status;
+    this.isOperational = true;
+
+    Error.captureStackTrace(this, this.constructor);
   }
 }
 
