@@ -6,12 +6,13 @@
 //   router.use('/admin', adminRoutes);               // CU-13, CU-14 (P3)
 const { Router } = require('express');
 const healthRoutes = require('./healthRoutes');
+const tutorRoutes = require('./tutorRoutes');
+const subjectRoutes = require('./subjectRoutes');
 
 const router = Router();
 
 router.use('/health', healthRoutes);
+router.use('/tutors', tutorRoutes);
+router.use('/subjects', subjectRoutes);
 
 module.exports = router;
-
-const tutorRoutes = require('./tutorRoutes');
-router.use('/tutors', tutorRoutes);
