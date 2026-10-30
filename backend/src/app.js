@@ -8,6 +8,7 @@ const config = require('./config/env');
 const apiRoutes = require('./routes');
 const notFound = require('./middlewares/notFound');
 const errorHandler = require('./middlewares/errorHandler');
+const csrfProtection = require('./middlewares/csrfMiddleware');
 
 const app = express();
 
@@ -28,7 +29,9 @@ app.use(
 app.use(express.json({ limit: '100kb' }));
 app.use(cookieParser());
 
-app.use('/api', apiRoutes);
+// First link of the chain for every API route: state-changing requests without the
+// X-Requested-With header are rejected before touching the database (ADR 4).
+app.use('/api', csrfProtection, apiRoutes);
 
 // These two must be registered last.
 app.use(notFound);

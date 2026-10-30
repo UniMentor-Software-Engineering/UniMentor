@@ -25,6 +25,12 @@ const config = {
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean),
+  // CU-01, precondition 2: only institutional addresses can register.
+  // unimentor.edu is the domain of the seed accounts used in development.
+  allowedEmailDomains: (process.env.ALLOWED_EMAIL_DOMAINS || 'myuax.com,unimentor.edu')
+    .split(',')
+    .map((domain) => domain.trim().toLowerCase())
+    .filter(Boolean),
 };
 
 module.exports = config;
