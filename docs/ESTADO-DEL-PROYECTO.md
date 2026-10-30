@@ -80,21 +80,21 @@ Se ha probado de punta a punta con un PostgreSQL real: navegador → `api.js` �
 
 - [ ] Maquetación final del documento completo cuando P2–P5 entreguen sus secciones.
 
-### P2: casi hecho (rama `fix/p2-schema-review`)
+### P2: fusionado en `main` (PR #6, 30 oct)
 
 > Las correcciones de [`REVISION-P2.md`](REVISION-P2.md) están hechas en la rama `fix/p2-schema-review` y probadas con un PostgreSQL real (30 oct): migraciones 001–003 (incluido `session_type`), seed funcionando con la contraseña `Password123!`, CU-03, CU-06, `GET /api/subjects`, 35 tests y la sección 4.2 del documento.
 
 - [x] Migraciones (`npm run db:migrate`) y datos de prueba (`npm run db:seed`).
 - [x] CU-03 y CU-06 (backend).
 - [x] Sección 4.2 Database Schema.
-- [ ] **Abrir el PR de `fix/p2-schema-review` a `main`, revisarlo y fusionarlo.** Después, cada uno ejecuta `npm run db:migrate` en su BD local.
+- [x] PR #6 fusionado en `main`. **Cada uno tiene que ejecutar `npm run db:migrate`** (y `npm run db:seed` si quiere datos de prueba) en su BD local.
 - [ ] Cuando P3 tenga `verifyJWT` leyendo la cookie, sustituir el `ensureAuth` provisional de `tutorRoutes.js` por `verifyJWT` + `requireRole('TUTOR')`.
 - [ ] Opcional: búsqueda sin distinguir acentos (`unaccent`): ahora `algebra` no encuentra "Álgebra".
 - [ ] Frontend de búsqueda de tutores y de edición del perfil.
 
 ### P3
 
-> Hay un primer borrador (22 oct), pero no hace todavía ningún caso de uso. La lista completa está en [`REVISION-P3.md`](REVISION-P3.md). Depende del esquema nuevo de P2 (rama `fix/p2-schema-review`).
+> Hay un primer borrador (22 oct), pero no hace todavía ningún caso de uso. La lista completa está en [`REVISION-P3.md`](REVISION-P3.md). El esquema de P2 que necesita ya está en `main` (PR #6).
 
 - [ ] CU-01, CU-02, CU-13 y CU-14, con los middlewares de JWT, roles y CSRF, el bloqueo tras 5 intentos y los logs de auditoría.
 - [ ] Patrón Chain of Responsibility (para la semana 9).
