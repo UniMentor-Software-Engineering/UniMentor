@@ -3,8 +3,9 @@ name: CI
 on:
   push:
     branches: [main]
+  # Every Pull Request, also the ones stacked on another feature branch
+  # (their base is not main until the branch below them is merged).
   pull_request:
-    branches: [main]
 
 jobs:
   backend:
