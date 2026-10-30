@@ -22,8 +22,21 @@ Requirements: Node.js 22+ and a PostgreSQL database.
 cd backend
 cp .env.example .env      # then edit DATABASE_URL, etc.
 npm install
+npm run db:migrate        # creates or updates the tables (safe to run again)
+npm run db:seed           # optional: empties the tables and loads the test data
 npm run dev               # http://localhost:3000/api/health
 ```
+
+Test accounts created by `npm run db:seed` (the password is `Password123!` for all of them):
+
+| Email | Role |
+|---|---|
+| `admin@unimentor.edu` | ADMIN |
+| `laura.garcia@unimentor.edu` | TUTOR |
+| `carlos.martin@unimentor.edu` | TUTOR |
+| `diego.student@unimentor.edu` | STUDENT |
+
+Schema changes go in a new numbered file in `backend/src/database/migrations/` (e.g. `004_...sql`). Never edit a migration that is already in `main`: databases that applied it will not run it again.
 
 Frontend: serve the `frontend/` folder with any static server on port 5500 (e.g. the VS Code "Live Server" extension, or `npx serve frontend -l 5500`) and open `http://localhost:5500`. The status card shows whether the API and the database are reachable.
 
@@ -45,6 +58,8 @@ Requirements: [Node.js 22+](https://nodejs.org) and [Docker Desktop](https://www
    cd backend
    Copy-Item .env.example .env
    npm install
+   npm run db:migrate
+   npm run db:seed
    npm run dev
    ```
 
@@ -66,13 +81,15 @@ To stop everything: `Ctrl+C` in both terminals and `docker stop unimentor-pg`.
 |---|---|
 | `npm run dev` | Starts the API with nodemon (restarts on file changes) |
 | `npm start` | Starts the API with node (production) |
+| `npm run db:migrate` | Applies the pending SQL migrations in `src/database/migrations/` |
+| `npm run db:seed` | Empties the tables and loads the test data (`src/database/seeds.sql`) |
 | `npm run lint` | Runs ESLint |
 | `npm test` | Runs the Jest test suite |
 | `npm run test:coverage` | Tests + coverage report (CI requires >= 70 % lines, NFR-04) |
 
 ## Deployment
 
-- **Backend + database (Render):** New > Blueprint > this repository (`render.yaml`). Then set `FRONTEND_ORIGIN` to the Vercel URL.
+- **Backend + database (Render):** New > Blueprint > this repository (`render.yaml`). Then set `FRONTEND_ORIGIN` to the Vercel URL Create the tables by running `npm run db:migrate` from your machine with `DATABASE_URL` set to the database's *External Database URL* and `DB_SSL=true` (repeat it after every merge that adds a migration).
 - **Frontend (Vercel):** import the repository and set **Root Directory** to `frontend` (framework preset: Other, no build command). Then set the Render URL in `frontend/js/config.js`.
 
 ## Documentation PDFs

@@ -136,13 +136,13 @@ For `0.x` versions the caret is stricter (`^0.4.1` means `<0.5.0`), because any 
 
 ---
 
-# 4.2 Database Schema and Persistence Architecture (Phase 2)
+## 4.2 Database Schema and Persistence Architecture
 
-The persistence layer of the UniMentor platform is implemented on PostgreSQL 16/17. It enforces data integrity, business rules, and concurrency guarantees directly within the database engine rather than relying solely on application-level checks. This implementation realizes Architectural Decision Record 4 (ADR 4: PostgreSQL with Engine-Level Constraint Enforcement).
+The persistence layer of the UniMentor platform is implemented on PostgreSQL 16/17. It enforces data integrity, business rules, and concurrency guarantees directly within the database engine rather than relying solely on application-level checks. This implementation realizes ADR 2 (PostgreSQL), which was chosen precisely for its transactional guarantees and engine-level constraints.
 
 ---
 
-## 4.2.1 Relational Data Model & Entity-Relationship Structure
+### 4.2.1 Relational Data Model & Entity-Relationship Structure
 
 The relational model consists of seven primary tables structured to satisfy referential integrity, authentication constraints, scheduling rules, and audit requirements:
 
@@ -154,8 +154,8 @@ The relational model consists of seven primary tables structured to satisfy refe
   │ email (VARCHAR, UNIQUE)                                   │
   │ password_hash (VARCHAR)                                   │
   │ first_name (VARCHAR), last_name (VARCHAR)                 │
-  │ role (VARCHAR: 'STUDENT', 'TUTOR', 'ADMIN')               │
-  │ status (VARCHAR: 'ACTIVE', 'SUSPENDED')                   │
+  │ role (ENUM user_role: 'STUDENT', 'TUTOR', 'ADMIN')        │
+  │ status (ENUM user_status: 'ACTIVE', 'SUSPENDED')          │
   │ failed_login_count (INT), locked_until (TIMESTAMPTZ)      │
   │ late_cancellation_count (INT)                             │
   │ created_at (TIMESTAMPTZ), updated_at (TIMESTAMPTZ)        │
@@ -189,7 +189,7 @@ The relational model consists of seven primary tables structured to satisfy refe
   │ id (PK, UUID)                                             │
   │ tutor_id (FK -> users)                                    │
   │ time_range (TSTZRANGE)                                    │
-  │ status (VARCHAR: 'AVAILABLE', 'BOOKED', 'UNAVAILABLE')    │
+  │ status (ENUM slot_status: AVAILABLE, BOOKED, UNAVAILABLE) │
   │ created_at (TIMESTAMPTZ), updated_at (TIMESTAMPTZ)        │
   │ UNIQUE (id, tutor_id, time_range)  <── Composite Candidate│
   └─────────────────────────────┬─────────────────────────────┘
@@ -203,7 +203,8 @@ The relational model consists of seven primary tables structured to satisfy refe
   │ tutor_id (FK -> users)          <── Deliberate            │
   │ student_id (FK -> users)                                  │
   │ time_range (TSTZRANGE)          <── Denormalization       │
-  │ status (VARCHAR: 'CONFIRMED', 'COMPLETED', 'CANCELLED')   │
+  │ session_type (ENUM: QUICK_CHECK, STANDARD, DEEP_DIVE)     │
+  │ status (ENUM: CONFIRMED, COMPLETED, CANCELLED)            │
   │ student_inquiry (TEXT), tutor_notes (TEXT)                │
   │ student_feedback (TEXT)                                   │
   │ is_late_cancellation (BOOLEAN)                            │
@@ -215,27 +216,27 @@ The relational model consists of seven primary tables structured to satisfy refe
 
 ---
 
-## 4.2.2 Normalization Analysis and Deliberate Denormalization
+### 4.2.2 Normalization Analysis and Deliberate Denormalization
 
 The relational schema has been designed in compliance with classical relational theory and evaluated against Codd's Normal Forms:
 
-### 1. First Normal Form (1NF)
+#### 1. First Normal Form (1NF)
 A relation is in 1NF if every field contains only atomic (indivisible) values and there are no repeating groups.
 * **Attribute Atomicity**: Every column across all entities (`email`, `first_name`, `last_name`, `code`, `meeting_url`) holds a single, indivisible scalar value.
 * **Absence of Repeating Groups**: Tutor academic specializations are not stored as serialized JSON arrays or delimited strings in `tutor_profiles`. Instead, each qualification is modeled as an individual tuple in the junction table `tutor_subjects`.
 
-### 2. Second Normal Form (2NF)
+#### 2. Second Normal Form (2NF)
 A relation is in 2NF if it satisfies 1NF and all non-prime attributes are fully functionally dependent on the entire primary key.
 * In `tutor_subjects`, the primary key is composite: `(tutor_id, subject_id)`. The only non-key attribute is `created_at`, which documents the timestamp when that specific association was established. Descriptive subject data (`name`, `department`) is kept exclusively in `subjects`, avoiding partial key dependencies.
 * All other tables (`users`, `tutor_profiles`, `subjects`, `availability_slots`, `appointments`, `audit_logs`) use single-column primary keys (`id` or `user_id`), rendering partial functional dependency structurally impossible.
 
-### 3. Third Normal Form (3NF) and the Intentional Denormalization of `appointments`
+#### 3. Third Normal Form (3NF) and the Intentional Denormalization of `appointments`
 A relation is in 3NF if it satisfies 2NF and contains no transitive dependencies (no non-prime attribute depends on another non-prime attribute).
 * **Role Specialization**: Tutor-specific metadata (`bio`, `meeting_url`) is segregated into `tutor_profiles` via a 1:1 relation referencing `users(id)`. Placing these attributes directly in `users` would introduce null values for student accounts and violate functional cohesion.
 * **Strategic Denormalization in `appointments`**:
   Under strict 3NF rules, the `appointments` relation would only require `slot_id` and `student_id`. The attributes `tutor_id` and `time_range` are transitively dependent on `slot_id` through `availability_slots`:
   $$\text{slot\_id} \to (\text{tutor\_id}, \text{time\_range})$$
-  However, removing these columns would mean that enforcing business rule **BR-CONF-03** (preventing a student from booking two concurrent appointments across different tutors) could only be achieved via:
+  However, removing these columns would mean that enforcing business rule **BR-CONF-05** (preventing a student from booking two concurrent appointments across different tutors) could only be achieved via:
   1. An application-level read-before-write query, which is vulnerable to race conditions under concurrent client execution.
   2. A heavy PL/pgSQL lock trigger escalating table-level locks.
 
@@ -256,7 +257,7 @@ A relation is in 3NF if it satisfies 2NF and contains no transitive dependencies
 
 ---
 
-## 4.2.3 Concurrency Control and Double-Booking Mitigation (NFR-03, BR-CONF-05)
+### 4.2.3 Concurrency Control and Double-Booking Mitigation (NFR-03, BR-CONF-05)
 
 A core requirement of Phase 2 is preventing race conditions during appointment scheduling. Concurrency protection is achieved through three complementary database-level mechanisms:
 
@@ -291,11 +292,11 @@ Combined with row-level locking (`SELECT ... FOR UPDATE`) in booking transaction
 
 ---
 
-## 4.2.4 Data Dictionary and Schema Specifications
+### 4.2.4 Data Dictionary and Schema Specifications
 
-The schema uses specialized PostgreSQL types: `UUID` (anti-enumeration and IDOR mitigation), `TIMESTAMPTZ` (UTC standard), and native `CHECK` constraints.
+The schema uses specialized PostgreSQL types: `UUID` (anti-enumeration and IDOR mitigation), `TIMESTAMPTZ` (UTC standard), `TSTZRANGE` for time slots, and native `ENUM` types (`user_role`, `user_status`, `slot_status`, `appointment_status`, `session_type`) for every closed set of values, so an invalid state cannot be stored and the allowed values are declared once.
 
-### Table: `users`
+#### Table: `users`
 Represents all system actors (Students, Tutors, and Administrators).
 
 | Column | Type | Nullable | Default | Description / Constraints |
@@ -305,15 +306,15 @@ Represents all system actors (Students, Tutors, and Administrators).
 | `password_hash` | VARCHAR(255) | No | - | Cryptographic hash (bcrypt, 10 salt rounds) |
 | `first_name` | VARCHAR(100) | No | - | User first name |
 | `last_name` | VARCHAR(100) | No | - | User last name |
-| `role` | VARCHAR(20) | No | `'STUDENT'` | `CHECK (role IN ('STUDENT', 'TUTOR', 'ADMIN'))` |
-| `status` | VARCHAR(20) | No | `'ACTIVE'` | `CHECK (status IN ('ACTIVE', 'SUSPENDED'))` |
+| `role` | ENUM `user_role` | No | `'STUDENT'` | `'STUDENT'`, `'TUTOR'`, `'ADMIN'` |
+| `status` | ENUM `user_status` | No | `'ACTIVE'` | `'ACTIVE'`, `'SUSPENDED'` (CU-13) |
 | `failed_login_count` | INT | No | `0` | Consecutive failed login attempts (CU-02) |
 | `locked_until` | TIMESTAMPTZ | Yes | `NULL` | Expiration timestamp for account lockout |
 | `late_cancellation_count` | INT | No | `0` | Policy infraction accumulator (BR-CONF-02) |
 | `created_at` | TIMESTAMPTZ | No | `CURRENT_TIMESTAMP` | Account creation timestamp |
 | `updated_at` | TIMESTAMPTZ | No | `CURRENT_TIMESTAMP` | Managed via trigger `trg_users_updated_at` |
 
-### Table: `subjects`
+#### Table: `subjects`
 Catalog of available academic courses.
 
 | Column | Type | Nullable | Default | Description / Constraints |
@@ -325,18 +326,18 @@ Catalog of available academic courses.
 | `created_at` | TIMESTAMPTZ | No | `CURRENT_TIMESTAMP` | Record creation timestamp |
 | `updated_at` | TIMESTAMPTZ | No | `CURRENT_TIMESTAMP` | Managed via trigger `trg_subjects_updated_at` |
 
-### Table: `tutor_profiles`
+#### Table: `tutor_profiles`
 Profile information for users registered as tutors (1:1 with `users`).
 
 | Column | Type | Nullable | Default | Description / Constraints |
 |---|---|---|---|---|
 | `user_id` | UUID | No | - | Primary Key, FK -> `users(id)` ON DELETE CASCADE |
-| `bio` | TEXT | Yes | `NULL` | Professional bio (`CHECK (LENGTH(bio) <= 1000)`) |
+| `bio` | TEXT | Yes | `NULL` | Professional bio (at most 1000 characters, validated in `tutorService`) |
 | `meeting_url` | VARCHAR(500) | Yes | `NULL` | HTTPS video meeting link (Google Meet, Zoom, Teams) |
 | `created_at` | TIMESTAMPTZ | No | `CURRENT_TIMESTAMP` | Profile creation timestamp |
 | `updated_at` | TIMESTAMPTZ | No | `CURRENT_TIMESTAMP` | Managed via trigger `trg_tutor_profiles_updated_at` |
 
-### Table: `tutor_subjects`
+#### Table: `tutor_subjects`
 Junction table mapping tutors to their qualified subjects (N:M relationship).
 
 | Column | Type | Nullable | Default | Description / Constraints |
@@ -345,7 +346,7 @@ Junction table mapping tutors to their qualified subjects (N:M relationship).
 | `subject_id` | UUID | No | - | Composite PK, FK -> `subjects(id)` ON DELETE CASCADE |
 | `created_at` | TIMESTAMPTZ | No | `CURRENT_TIMESTAMP` | Qualification assignment timestamp |
 
-### Table: `availability_slots`
+#### Table: `availability_slots`
 Available one-hour timeslots published by tutors.
 
 | Column | Type | Nullable | Default | Description / Constraints |
@@ -353,7 +354,7 @@ Available one-hour timeslots published by tutors.
 | `id` | UUID | No | `gen_random_uuid()` | Primary Key |
 | `tutor_id` | UUID | No | - | FK -> `users(id)` ON DELETE CASCADE |
 | `time_range` | TSTZRANGE | No | - | Half-open `[start, end)` timestamp interval |
-| `status` | VARCHAR(20) | No | `'AVAILABLE'` | `CHECK (status IN ('AVAILABLE', 'BOOKED', 'UNAVAILABLE'))` |
+| `status` | ENUM `slot_status` | No | `'AVAILABLE'` | `'AVAILABLE'`, `'BOOKED'`, `'UNAVAILABLE'` |
 | `created_at` | TIMESTAMPTZ | No | `CURRENT_TIMESTAMP` | Creation timestamp |
 | `updated_at` | TIMESTAMPTZ | No | `CURRENT_TIMESTAMP` | Managed via trigger `trg_availability_slots_updated_at` |
 
@@ -362,7 +363,7 @@ Available one-hour timeslots published by tutors.
   * `no_tutor_slot_overlap`: `EXCLUDE USING gist (tutor_id WITH =, time_range WITH &&)`
   * `uq_slot_tutor_range`: `UNIQUE (id, tutor_id, time_range)`
 
-### Table: `appointments`
+#### Table: `appointments`
 Scheduled tutoring sessions booked by students.
 
 | Column | Type | Nullable | Default | Description / Constraints |
@@ -370,13 +371,14 @@ Scheduled tutoring sessions booked by students.
 | `id` | UUID | No | `gen_random_uuid()` | Primary Key |
 | `slot_id` | UUID | No | - | FK -> `availability_slots(id)` |
 | `tutor_id` | UUID | No | - | FK -> `users(id)` (Denormalized) |
-| `student_id` | UUID | No | - | FK -> `users(id)` ON DELETE RESTRICT |
+| `student_id` | UUID | No | - | FK -> `users(id)` ON DELETE CASCADE |
 | `time_range` | TSTZRANGE | No | - | UTC interval (Denormalized) |
-| `status` | VARCHAR(20) | No | `'CONFIRMED'` | `CHECK (status IN ('CONFIRMED', 'COMPLETED', 'CANCELLED'))` |
+| `session_type` | ENUM `session_type` | No | `'STANDARD'` | `'QUICK_CHECK'` (5 min), `'STANDARD'` (30 min), `'DEEP_DIVE'` (60 min); always one 60-minute block (BR-CONF-03) |
+| `status` | ENUM `appointment_status` | No | `'CONFIRMED'` | `'CONFIRMED'`, `'COMPLETED'`, `'CANCELLED'` |
 | `student_inquiry` | TEXT | Yes | `NULL` | Student consultation notes/questions |
 | `tutor_notes` | TEXT | Yes | `NULL` | Private notes recorded by tutor after session |
 | `student_feedback` | TEXT | Yes | `NULL` | Student rating and feedback |
-| `is_late_cancellation` | BOOLEAN | No | `FALSE` | Marked if cancelled within 2 hours of start |
+| `is_late_cancellation` | BOOLEAN | No | `FALSE` | Set when cancelled less than 4 hours before the start (BR-CONF-02) |
 | `cancelled_by` | UUID | Yes | `NULL` | FK -> `users(id)` tracking cancellation initiator |
 | `cancelled_at` | TIMESTAMPTZ | Yes | `NULL` | Cancellation timestamp |
 | `created_at` | TIMESTAMPTZ | No | `CURRENT_TIMESTAMP` | Booking timestamp |
@@ -387,7 +389,7 @@ Scheduled tutoring sessions booked by students.
   * `no_student_appointment_overlap`: `EXCLUDE USING gist (student_id WITH =, time_range WITH &&) WHERE (status <> 'CANCELLED')`
   * `uq_appointments_active_slot`: `UNIQUE INDEX (slot_id) WHERE status <> 'CANCELLED'`
 
-### Table: `audit_logs`
+#### Table: `audit_logs`
 Append-only log documenting security-relevant events and status transitions (CU-14).
 
 | Column | Type | Nullable | Default | Description / Constraints |
@@ -405,15 +407,16 @@ Append-only log documenting security-relevant events and status transitions (CU-
 
 ---
 
-## 4.2.5 Automated Database Migrations & Seed Architecture
+### 4.2.5 Automated Database Migrations & Seed Architecture
 
-### Migration Engine (`src/database/migrate.js`)
+#### Migration Engine (`src/database/migrate.js`)
 Database schema migrations are managed through version-controlled, sequential SQL files located in `src/database/migrations/`:
-* **State Tracking**: The table `schema_migrations (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL UNIQUE, applied_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP)` records every executed script.
+* **State Tracking**: The table `schema_migrations (id SERIAL PRIMARY KEY, filename VARCHAR(255) NOT NULL UNIQUE, applied_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP)` records every executed script.
 * **Transactional Atomicity**: Each migration file is read and executed inside an explicit `BEGIN ... COMMIT` block. If any statement fails, the transaction is rolled back immediately via `ROLLBACK`, leaving the schema in a clean, consistent state.
 * **Idempotency**: Running `npm run db:migrate` repeatedly is safe; migrations already present in `schema_migrations` are automatically skipped.
+* **Current migrations**: `001_initial_schema.sql` (types, tables, constraints and triggers), `002_add_indexes.sql` (secondary indexes, Section 4.2.6) and `003_add_session_type.sql` (the `session_type` ENUM and column). The third one shows the rule the team follows: a migration that is already in `main` is never edited, because databases that applied it would not run it again; every change is a new numbered file.
 
-### Seed Strategy (`src/database/seeds.sql`)
+#### Seed Strategy (`src/database/seeds.sql`)
 Test and development datasets are loaded via `npm run db:seed`:
 * **Cryptographic Hashes**: Seed accounts use genuine bcrypt password hashes (cost factor 10) matching the standard testing credential `Password123!`.
 * **Standardized Roles**: Creates an administrator (`admin@unimentor.edu`), certified tutors (`laura.garcia@unimentor.edu`, `carlos.martin@unimentor.edu`), and students.
@@ -421,9 +424,15 @@ Test and development datasets are loaded via `npm run db:seed`:
 
 ---
 
-## 4.2.6 Query Optimization and Indexing Strategy
+### 4.2.6 Query Optimization and Indexing Strategy
 
-In addition to primary keys and unique constraints, indexes are created to support query patterns for search (CU-06) and fulfill performance requirements (NFR-02: sub-200ms latency):
-* **Composite Foreign Key Indexes**: `idx_appointments_slot_composite` on `appointments(slot_id, tutor_id, time_range)`.
-* **Search Filters**: B-tree indexes on `subjects(name)` and `tutor_profiles(user_id)` to optimize joins during catalog searches.
-* **Partial Slot Search Index**: An index on `availability_slots(time_range) WHERE status = 'AVAILABLE'` accelerates upcoming availability lookups by indexing only bookable slots.
+Many lookups are already served by indexes that PostgreSQL creates for the constraints: the primary keys, `UNIQUE (email)`, `UNIQUE (code)`, the GiST indexes behind the two `EXCLUDE` constraints and the partial unique index `uq_appointments_active_slot`. Migration `002_add_indexes.sql` adds only the indexes that the main read paths still need to stay under 200 ms (NFR-01):
+
+| Index | Columns | Used by |
+|---|---|---|
+| `idx_tutor_subjects_subject` | `tutor_subjects (subject_id)` | CU-06: tutors of a subject (the primary key starts with `tutor_id`, so it cannot serve this lookup) |
+| `idx_appointments_student` | `appointments (student_id)` | CU-11: the student's dashboard |
+| `idx_appointments_tutor` | `appointments (tutor_id)` | CU-11: the tutor's dashboard |
+| `idx_availability_slots_available` | `availability_slots (tutor_id, lower(time_range)) WHERE status = 'AVAILABLE'` | CU-06 and CU-07: the next free slot of a tutor. Being partial, it only stores free slots and stays small |
+
+No index was added for columns that are not filtered on, because every index slows down writes and the booking transaction (CU-08) is the most write-sensitive path of the system.

@@ -1,11 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const tutorController = require('../controllers/tutorController');
+const AppError = require('../utils/AppError');
 
-// Middleware dummy en caso de que P3 aún no haya mergeado authMiddleware
+// Temporary guard until P3's verifyJWT + requireRole('TUTOR') read the session cookie:
+// replace it with them then. Until that happens, PUT /profile always answers 401.
 const ensureAuth = (req, res, next) => {
   if (!req.user) {
-    return res.status(401).json({ message: 'Authentication required' });
+    throw new AppError(401, 'Authentication required.', 'UNAUTHENTICATED');
   }
   next();
 };
