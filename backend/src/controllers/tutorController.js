@@ -47,6 +47,15 @@ async function getProfile(req, res, next) {
   }
 }
 
+async function getOwnProfile(req, res, next) {
+  try {
+    const profile = await tutorService.getOwnProfile(req.user.id);
+    res.status(200).json(profile);
+  } catch (error) {
+    next(error);
+  }
+}
+
 async function updateProfile(req, res, next) {
   try {
     if (!req.user || !req.user.id) {
@@ -63,5 +72,6 @@ async function updateProfile(req, res, next) {
 module.exports = {
   search,
   getProfile,
+  getOwnProfile,
   updateProfile
 };

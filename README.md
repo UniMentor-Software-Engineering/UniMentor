@@ -73,7 +73,7 @@ Requirements: [Node.js 22+](https://nodejs.org) and [Docker Desktop](https://www
 
    Open `http://localhost:5500`. It must be port 5500 (or 127.0.0.1:5500), which is the origin allowed by CORS in `.env` (`FRONTEND_ORIGIN`).
 
-   Sign in at `login.html` with a seed account (password `Password123!`): `admin@unimentor.edu` opens the admin panel (`admin.html`); `laura.garcia@unimentor.edu` and `carlos.martin@unimentor.edu` are tutors and `diego.student@unimentor.edu` is a student. New accounts can register at `register.html` with an email from `ALLOWED_EMAIL_DOMAINS` (by default `myuax.com` and `unimentor.edu`).
+   Sign in at `login.html` with a seed account (password `Password123!`): `admin@unimentor.edu` opens the admin panel (`admin.html`); `laura.garcia@unimentor.edu` and `carlos.martin@unimentor.edu` are tutors (they land on `profile.html`, CU-03) and `diego.student@unimentor.edu` is a student (`tutors.html`, CU-06, which is also public). New accounts can register at `register.html` with an email from `ALLOWED_EMAIL_DOMAINS` (by default `myuax.com` and `unimentor.edu`).
 
 To stop everything: `Ctrl+C` in both terminals and `docker stop unimentor-pg`.
 
