@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Create account · UniMentor</title>
+    <link rel="stylesheet" href="css/base.css" />
+    <link rel="stylesheet" href="css/auth.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="brand" href="index.html">UniMentor</a>
+      </div>
+    </header>
+
+    <main class="container">
+      <section class="card stack auth-card" aria-labelledby="register-title">
+        <h1 id="register-title">Create your account</h1>
+
+        <p id="form-message" class="form-message" role="alert" hidden></p>
+
+        <form id="register-form" class="stack" novalidate>
+          <div class="form-field">
+            <label for="firstName">First name</label>
+            <input id="firstName" name="firstName" class="input" autocomplete="given-name" maxlength="100" required aria-describedby="firstName-error" />
+            <p id="firstName-error" class="field-error"></p>
+          </div>
+          <div class="form-field">
+            <label for="lastName">Last name</label>
+            <input id="lastName" name="lastName" class="input" autocomplete="family-name" maxlength="100" required aria-describedby="lastName-error" />
+            <p id="lastName-error" class="field-error"></p>
+          </div>
+          <div class="form-field">
+            <label for="email">University email</label>
+            <input id="email" name="email" type="email" class="input" autocomplete="email" maxlength="255" required aria-describedby="email-error" />
+            <p id="email-error" class="field-error"></p>
+          </div>
+          <div class="form-field">
+            <label for="password">Password</label>
+            <input id="password" name="password" type="password" class="input" autocomplete="new-password" maxlength="72" required aria-describedby="password-hint password-error" />
+            <p id="password-hint" class="form-hint">At least 8 characters, with letters and digits.</p>
+            <p id="password-error" class="field-error"></p>
+          </div>
+          <fieldset class="form-field" aria-describedby="role-error">
+            <legend class="visually-hidden">Role</legend>
+            <span class="form-hint">I want to join as</span>
+            <div class="role-options">
+              <label><input type="radio" name="role" value="STUDENT" checked /> Student</label>
+              <label><input type="radio" name="role" value="TUTOR" /> Tutor</label>
+            </div>
+            <p id="role-error" class="field-error"></p>
+          </fieldset>
+          <button type="submit" class="btn btn-primary btn-block">Create Account</button>
+        </form>
+
+        <p class="text-muted">Already registered? <a href="login.html">Sign in</a></p>
+      </section>
+    </main>
+
+    <script type="module" src="js/register.js"></script>
+  </body>
+</html>

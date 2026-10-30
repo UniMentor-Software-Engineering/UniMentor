@@ -1,0 +1,45 @@
+/* Login and registration pages (CU-01, CU-02). Reuses the tokens of base.css. */
+
+.auth-card {
+  max-width: 28rem;
+  margin-inline: auto;
+}
+
+.form-message {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+  font-size: var(--font-size-sm);
+}
+
+.form-message[hidden] {
+  display: none;
+}
+
+.form-hint {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.btn-block {
+  width: 100%;
+}
+
+fieldset.form-field {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.role-options {
+  display: flex;
+  gap: var(--space-4);
+}
+
+.role-options label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 400;
+}

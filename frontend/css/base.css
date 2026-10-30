@@ -133,6 +133,13 @@ a {
   min-height: 3.5rem;
 }
 
+/* Links or buttons on the right side of the header (sign in, sign out...) */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
 .brand {
   font-weight: 700;
   font-size: var(--font-size-lg);

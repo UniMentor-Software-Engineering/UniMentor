@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sign in · UniMentor</title>
+    <link rel="stylesheet" href="css/base.css" />
+    <link rel="stylesheet" href="css/auth.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="brand" href="index.html">UniMentor</a>
+      </div>
+    </header>
+
+    <main class="container">
+      <section class="card stack auth-card" aria-labelledby="login-title">
+        <h1 id="login-title">Sign in</h1>
+        <p class="text-muted">Use your university email address.</p>
+
+        <p id="form-message" class="form-message" role="alert" hidden></p>
+
+        <form id="login-form" class="stack" novalidate>
+          <div class="form-field">
+            <label for="email">Email</label>
+            <input id="email" name="email" type="email" class="input" autocomplete="username" required />
+          </div>
+          <div class="form-field">
+            <label for="password">Password</label>
+            <input id="password" name="password" type="password" class="input" autocomplete="current-password" required />
+          </div>
+          <button type="submit" class="btn btn-primary btn-block">Sign In</button>
+        </form>
+
+        <p class="text-muted">No account yet? <a href="register.html">Create one</a></p>
+      </section>
+    </main>
+
+    <script type="module" src="js/login.js"></script>
+  </body>
+</html>

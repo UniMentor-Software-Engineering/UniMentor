@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Admin panel · UniMentor</title>
+    <link rel="stylesheet" href="css/base.css" />
+    <link rel="stylesheet" href="css/admin.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="brand" href="admin.html">UniMentor · Admin</a>
+        <div class="header-actions">
+          <span id="admin-name" class="text-muted"></span>
+          <button id="logout-button" type="button" class="btn btn-secondary">Sign out</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="container stack">
+      <!-- CU-14: System Metrics & Auditing -->
+      <section class="card stack" aria-labelledby="metrics-title">
+        <div class="section-header">
+          <h2 id="metrics-title">System Metrics &amp; Auditing</h2>
+          <button id="refresh-metrics" type="button" class="btn btn-secondary">Refresh</button>
+        </div>
+        <div id="metrics" class="metrics-grid" aria-live="polite"></div>
+        <h3 class="metric-label">Sessions by status</h3>
+        <div id="sessions-chart" class="bar-chart"></div>
+      </section>
+
+      <!-- CU-13: user directory and suspension -->
+      <section class="card stack" aria-labelledby="users-title">
+        <h2 id="users-title">Users</h2>
+        <form id="users-filters" class="filters">
+          <div class="form-field grow">
+            <label for="user-search">Search</label>
+            <input id="user-search" name="search" type="search" class="input" maxlength="100" placeholder="Name or email" />
+          </div>
+          <div class="form-field">
+            <label for="user-role">Role</label>
+            <select id="user-role" name="role" class="input">
+              <option value="">All</option>
+              <option value="STUDENT">Student</option>
+              <option value="TUTOR">Tutor</option>
+              <option value="ADMIN">Admin</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label for="user-status">Status</label>
+            <select id="user-status" name="status" class="input">
+              <option value="">All</option>
+              <option value="ACTIVE">Active</option>
+              <option value="SUSPENDED">Suspended</option>
+            </select>
+          </div>
+          <button type="submit" class="btn btn-primary">Filter</button>
+        </form>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th><span class="visually-hidden">Actions</span></th></tr>
+            </thead>
+            <tbody id="users-body"></tbody>
+          </table>
+        </div>
+        <div class="pagination">
+          <button id="users-prev" type="button" class="btn btn-secondary">Previous</button>
+          <span id="users-page"></span>
+          <button id="users-next" type="button" class="btn btn-secondary">Next</button>
+        </div>
+      </section>
+
+      <!-- CU-14: append-only audit trail -->
+      <section class="card stack" aria-labelledby="audit-title">
+        <div class="section-header">
+          <h2 id="audit-title">Audit log</h2>
+          <div class="form-field">
+            <label for="audit-action">Action</label>
+            <select id="audit-action" class="input">
+              <option value="">All</option>
+              <option value="USER_SUSPENDED">USER_SUSPENDED</option>
+              <option value="USER_REACTIVATED">USER_REACTIVATED</option>
+              <option value="USER_REGISTERED">USER_REGISTERED</option>
+              <option value="ACCOUNT_LOCKED">ACCOUNT_LOCKED</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr><th>Date</th><th>Action</th><th>Actor</th><th>Target</th><th>Details</th></tr>
+            </thead>
+            <tbody id="audit-body"></tbody>
+          </table>
+        </div>
+        <div class="pagination">
+          <button id="audit-prev" type="button" class="btn btn-secondary">Previous</button>
+          <span id="audit-page"></span>
+          <button id="audit-next" type="button" class="btn btn-secondary">Next</button>
+        </div>
+      </section>
+    </main>
+
+    <dialog id="status-dialog" class="dialog" aria-labelledby="dialog-title">
+      <form id="status-form" method="dialog" class="stack" novalidate>
+        <h2 id="dialog-title"></h2>
+        <p id="dialog-text" class="text-muted"></p>
+        <div class="form-field">
+          <label for="reason">Reason</label>
+          <textarea id="reason" name="reason" class="input" maxlength="500" required aria-describedby="reason-error"></textarea>
+          <p id="reason-error" class="field-error"></p>
+        </div>
+        <div class="dialog-actions">
+          <button type="button" id="dialog-cancel" class="btn btn-secondary">Cancel</button>
+          <button type="submit" id="dialog-confirm" class="btn btn-danger"></button>
+        </div>
+      </form>
+    </dialog>
+
+    <script type="module" src="js/admin.js"></script>
+  </body>
+</html>
