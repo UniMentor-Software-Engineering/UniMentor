@@ -3,6 +3,7 @@
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
+const helmet = require('helmet');
 
 const config = require('./config/env');
 const apiRoutes = require('./routes');
@@ -16,6 +17,20 @@ const app = express();
 // req.ip and req.secure reflect the real client (needed for audit logs and cookies).
 app.set('trust proxy', 1);
 app.disable('x-powered-by');
+
+// NFR-02: security headers on every response. The API only serves JSON, so its
+// Content-Security-Policy forbids everything; the pages' own CSP is set by Vercel
+// (frontend/vercel.json). Cross-origin reads are allowed because the frontend is on
+// another site (ADR 4); CORS still decides which origins can read the responses.
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      useDefaults: false,
+      directives: { defaultSrc: ["'none'"], frameAncestors: ["'none'"] },
+    },
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  }),
+);
 
 // ADR 4: the frontend (Vercel) and the API (Render) are on different sites and the JWT
 // travels in an HttpOnly cookie, so CORS must allow credentials for the known origins only.

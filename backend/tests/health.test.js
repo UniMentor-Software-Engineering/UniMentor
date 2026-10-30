@@ -77,3 +77,21 @@ describe('CORS with credentials (ADR 4)', () => {
     expect(res.headers['access-control-allow-origin']).toBeUndefined();
   });
 });
+
+describe('Security headers (NFR-02)', () => {
+  it('sends a restrictive Content-Security-Policy and the helmet headers', async () => {
+    const res = await request(app).get('/api/health');
+
+    expect(res.headers['content-security-policy']).toBe("default-src 'none';frame-ancestors 'none'");
+    expect(res.headers['x-content-type-options']).toBe('nosniff');
+    expect(res.headers['strict-transport-security']).toMatch(/max-age=/);
+    expect(res.headers['x-frame-options']).toBe('SAMEORIGIN');
+  });
+
+  it('lets the frontend on another site read the responses (ADR 4)', async () => {
+    const res = await request(app).get('/api/health').set('Origin', 'http://localhost:5500');
+
+    expect(res.headers['cross-origin-resource-policy']).toBe('cross-origin');
+    expect(res.headers['access-control-allow-origin']).toBe('http://localhost:5500');
+  });
+});
