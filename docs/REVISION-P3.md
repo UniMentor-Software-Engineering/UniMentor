@@ -1,5 +1,7 @@
 # P3: Autenticación y administración. Guía de lo que falta
 
+> **✅ Hecho (30 oct, rama `feature/p3-auth-admin`).** Todos los apartados de esta guía están implementados; el estado actual está en `ESTADO-DEL-PROYECTO.md`. Se deja la guía como referencia de los criterios.
+
 *Revisión del 22 de octubre de 2026, actualizada el 30 de octubre (semana 8). Se refiere a estos archivos, que ya están en `main` (commit `f867fc2`). La carpeta `P3_Autenticacion_y_Admin` que se compartió tiene exactamente los mismos archivos, así que no aporta nada nuevo: hay que partir de lo que hay en el repo.*
 
 - *`backend/src/middlewares/auth.middleware.js`*

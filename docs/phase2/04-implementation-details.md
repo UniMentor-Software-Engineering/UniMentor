@@ -436,3 +436,107 @@ Many lookups are already served by indexes that PostgreSQL creates for the const
 | `idx_availability_slots_available` | `availability_slots (tutor_id, lower(time_range)) WHERE status = 'AVAILABLE'` | CU-06 and CU-07: the next free slot of a tutor. Being partial, it only stores free slots and stays small |
 
 No index was added for columns that are not filtered on, because every index slows down writes and the booking transaction (CU-08) is the most write-sensitive path of the system.
+
+---
+
+## 4.3 Design Patterns
+
+This section documents the design patterns applied in the implementation. Each one answers a concrete problem of the code base: **Chain of Responsibility** for the request security pipeline (4.3.1, authentication and administration), **Repository** for data access (4.3.2, bookings) and **Adapter/Strategy** for notifications (4.3.3, `NotificationService`, ADR 6).
+
+### 4.3.1 Chain of Responsibility: the Request Security Pipeline
+
+**Type:** behavioral (GoF). **Use cases:** CU-01, CU-02, CU-13, CU-14, and every protected route of the other modules (e.g. CU-03).
+
+#### Problem
+
+Before a protected request reaches its controller, several independent checks must pass, always in the same order: the request must not be a cross-site forgery (ADR 4), it must carry a valid session, the account must still be active (CU-13: *"Suspended accounts are rejected on every authenticated request"*) and the user must have the right role. For example, `POST /api/admin/users/:id/suspend` needs all four. Writing these checks inside each controller would duplicate them in every endpoint of the five modules, mix security with business logic, break the Single Responsibility Principle, and make it easy to forget one check in one route: a security hole that no test of the other routes would detect.
+
+#### Solution
+
+Each check is an independent **handler** with the same signature, `(req, res, next)`. A handler either passes the request to the next one by calling `next()`, or stops the chain by throwing an `AppError`. Express is the mechanism that links them, so no extra framework is needed:
+
+| GoF role | UniMentor element |
+|---|---|
+| **Handler** (common interface) | The Express middleware signature `(req, res, next)` |
+| **ConcreteHandler** | `csrfProtection` (`csrfMiddleware.js`), `verifyJWT` and `requireRole(...roles)` (`authMiddleware.js`), and the final controller |
+| **Successor link** | Calling `next()` |
+| **Stopping the chain** | `throw new AppError(status, message, code)`. Express 5 sends it, also from `async` handlers, straight to `errorHandler.js`, the last link (Section 4.1.4), which writes the JSON error |
+| **Client** (builds the chain) | `app.js` and the routers (`adminRoutes.js`, `tutorRoutes.js`...) |
+
+The chain is assembled in two places of the real code. `csrfProtection` is mounted once for the whole API, so no route can forget it, and each router adds the links it needs:
+
+```js
+// app.js: first link for every API route
+app.use('/api', csrfProtection, apiRoutes);
+
+// adminRoutes.js: the whole router requires an active ADMIN account (CU-13, CU-14)
+router.use(verifyJWT, requireRole('ADMIN'));
+router.post('/users/:id/suspend', adminController.suspendUser);
+
+// tutorRoutes.js: only the signed-in tutor edits their profile (CU-03)
+router.put('/profile', verifyJWT, requireRole('TUTOR'), tutorController.updateProfile);
+```
+
+`requireRole` is a handler *factory*: `requireRole('ADMIN')` and `requireRole('TUTOR')` are two different links built from the same code, so P4 and P5 protect their routes with `requireRole('STUDENT')` or `requireRole('TUTOR')` without writing new checks.
+
+```
+  HTTP request
+             │
+             ▼
+  ┌──────────────────────┐  no X-Requested-With header      ┌──────────────┐
+  │ csrfProtection       ├ 403 ────────────────────────────▶│ errorHandler │
+  └──────────┬───────────┘                                  │              │
+             │ next()                                       │ { "error": { │
+             ▼                                              │   "status",  │
+  ┌──────────────────────┐  no / invalid / expired token    │   "message", │
+  │ verifyJWT            ├ 401, or 403 if SUSPENDED ───────▶│   "code" } } │
+  └──────────┬───────────┘                                  │              │
+             │ next()                                       │              │
+             ▼                                              │              │
+  ┌──────────────────────┐  no req.user / wrong role        │              │
+  │ requireRole('ADMIN') ├ 401 / 403 ──────────────────────▶│              │
+  └──────────┬───────────┘                                  │              │
+             │ next()                                       │              │
+             ▼                                              │              │
+  ┌──────────────────────┐  business rule fails (AppError)  │              │
+  │ controller → service ├ 400 / 404 / 409 ────────────────▶│              │
+  └──────────┬───────────┘                                  └──────────────┘
+             │
+             ▼
+        200 OK (JSON)
+```
+
+#### What each link does
+
+- **`csrfProtection` (ADR 4, NFR-02).** The session cookie is `SameSite=None` because the frontend (Vercel) and the API (Render) are on different sites, so a forged request from another site would also carry it. The link lets `GET`, `HEAD` and `OPTIONS` through and requires the `X-Requested-With: XMLHttpRequest` header on every other method. A cross-site page cannot add a custom header without a CORS preflight, and CORS only accepts the configured frontend origins. `frontend/js/api.js` adds the header to every request. It also protects `/auth/login` against *login CSRF*.
+- **`verifyJWT`.** Reads the token from the `HttpOnly` cookie (never from `localStorage` or the `Authorization` header, which ADR 4 rejected), verifies the signature and expiry with `HS256`, and then reads `id, role, status` from `users`. A `SUSPENDED` account is rejected with 403 even if its token is still valid, which is how CU-13 *"invalidates any JWT already issued"*. The role also comes from the database, so a role change applies immediately. It leaves `req.user = { id, role }` for the next links.
+- **`requireRole(...roles)`.** Answers 401 if no previous link authenticated the request and 403 if the role is not allowed (CU-13, A1). The roles are the values of the `user_role` ENUM.
+
+#### Why the order matters
+
+The order is part of the design. `csrfProtection` comes first because it is the cheapest check and rejects forged requests before any database query. `verifyJWT` must come before `requireRole`, because it is the link that creates `req.user`; in the opposite order every request would get a 401.
+
+#### Why the login lockout is not a link
+
+The CU-02 rule (*5 consecutive failed attempts lock the account for 15 minutes*) looks like a candidate for another middleware, such as an IP rate limiter, but it cannot be one. It must count only *failed* attempts, so it needs to know whether `bcrypt.compare` succeeded, which happens inside `authService`. It must also count per account and not per IP, because many students share the university network, and survive restarts of the Render service. It is therefore a business rule in the service, stored in `users.failed_login_count` and `users.locked_until` and updated with a single atomic `UPDATE`.
+
+#### Consequences
+
+**Benefits**
+
+- **Separation of concerns.** Controllers and services only contain business logic; they can assume that `req.user` exists and has the right role.
+- **Reuse.** Each link is written once and combined per route. The P2, P4 and P5 routes are protected with one line.
+- **Secure by default.** The CSRF link is mounted globally, and the admin router applies `verifyJWT` and `requireRole('ADMIN')` to all its routes, so a new endpoint is protected without extra code.
+- **Testability.** Each link is a plain function that is tested on its own (`tests/unit/authMiddleware.test.js`), and the whole chain is tested over HTTP with Supertest (`tests/integration/adminRoutes.test.js`): no cookie gives 401, a student gives 403, and a POST without the header gives 403 before the database is queried.
+- **One error format.** Every rejection reaches the same `errorHandler`, so the frontend handles 401, 403 and 429 in one place (`api.js`).
+
+**Drawbacks**
+
+- **The order depends on whoever assembles the route.** Swapping two links breaks the security silently. It is mitigated by mounting the common links at router or application level and by the integration tests.
+- **A link that neither calls `next()` nor throws leaves the request hanging** until the client times out.
+- **Harder debugging.** The flow of a request is spread across several files instead of one function.
+- **One database query per authenticated request.** `verifyJWT` reads the account status on every call. It is a primary-key lookup, but it is the price of being able to revoke the sessions of suspended accounts at once (CU-13), which a purely stateless JWT could not do.
+
+#### Related decisions
+
+ADR 4 (JWT in an `HttpOnly` cookie, cross-site CORS with credentials and CSRF protection), NFR-02 (bcrypt with cost 12, signed JWT, cookie flags `HttpOnly; Secure; SameSite=None` in production, checked by the integration tests), CU-13 (account status checked on every request) and CU-14 (the critical actions are written to the append-only `audit_logs` table inside the same transaction as the action, so a suspension can never exist without its audit entry).

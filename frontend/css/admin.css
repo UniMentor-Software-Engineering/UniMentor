@@ -1,0 +1,147 @@
+/* Admin panel (CU-13, CU-14). Reuses the tokens and components of base.css. */
+
+.section-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+/* ---------- Metrics ---------- */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: var(--space-4);
+}
+
+.metric {
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-bg);
+}
+
+.metric-value {
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.metric-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+/* Sessions by status: a bar per status, its width is the share of all bookings. */
+.bar-chart {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.bar-row {
+  display: grid;
+  grid-template-columns: 7rem 1fr 3rem;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--font-size-sm);
+}
+
+.bar-track {
+  height: 0.75rem;
+  border-radius: 999px;
+  background: var(--color-border);
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%;
+  border-radius: 999px;
+}
+
+.bar-confirmed { background: var(--color-primary); }
+.bar-completed { background: var(--color-success); }
+.bar-cancelled { background: var(--color-danger); }
+
+/* ---------- Filters and tables ---------- */
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+}
+
+.filters .form-field {
+  min-width: 10rem;
+}
+
+.filters .form-field.grow {
+  flex: 1 1 14rem;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.data-table th,
+.data-table td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.data-table th {
+  color: var(--color-text-muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.data-table .btn {
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--font-size-sm);
+}
+
+.details-cell {
+  max-width: 24rem;
+  overflow-wrap: anywhere;
+  color: var(--color-text-muted);
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  font-size: var(--font-size-sm);
+}
+
+/* ---------- Suspend dialog ---------- */
+.dialog {
+  width: min(32rem, calc(100% - 2 * var(--space-4)));
+  padding: var(--space-6);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.dialog::backdrop {
+  background: rgb(15 23 42 / 0.45);
+}
+
+.dialog textarea {
+  min-height: 6rem;
+  resize: vertical;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}

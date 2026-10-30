@@ -1,8 +1,20 @@
 const request = require('supertest');
 const app = require('../../src/app');
+const jwt = require('jsonwebtoken');
+const config = require('../../src/config/env');
 const tutorService = require('../../src/services/tutorService');
+const userRepository = require('../../src/repositories/userRepository');
 
 jest.mock('../../src/services/tutorService');
+jest.mock('../../src/repositories/userRepository');
+
+const TUTOR_ID = 'b0000000-0000-0000-0000-000000000001';
+
+// A signed session cookie; verifyJWT reads the role from the (mocked) database.
+function cookieFor(role) {
+  userRepository.findAuthState.mockResolvedValue({ id: TUTOR_ID, role, status: 'ACTIVE' });
+  return `token=${jwt.sign({ sub: TUTOR_ID, role }, config.jwtSecret, { expiresIn: '1h' })}`;
+}
 
 describe('Tutor Routes Integration Tests', () => {
   afterEach(() => {
@@ -83,13 +95,45 @@ describe('Tutor Routes Integration Tests', () => {
 
   describe('PUT /api/tutors/profile', () => {
     it('should return 401 when request is unauthenticated', async () => {
-      const res = await request(app).put('/api/tutors/profile').send({
+      const res = await request(app)
+        .put('/api/tutors/profile')
+        .set('X-Requested-With', 'XMLHttpRequest')
+        .send({
         bio: 'Updated bio',
         meetingUrl: 'https://meet.google.com/abc-defg-hij',
         subjectIds: ['d0000000-0000-0000-0000-000000000001']
       });
 
       expect(res.status).toBe(401);
+    });
+
+    it('should return 403 when the signed-in user is not a tutor', async () => {
+      const res = await request(app)
+        .put('/api/tutors/profile')
+        .set('X-Requested-With', 'XMLHttpRequest')
+        .set('Cookie', cookieFor('STUDENT'))
+        .send({ bio: 'Hi' });
+
+      expect(res.status).toBe(403);
+      expect(tutorService.updateProfile).not.toHaveBeenCalled();
+    });
+
+    it('should update the profile of the signed-in tutor', async () => {
+      tutorService.updateProfile.mockResolvedValue({ message: 'Tutor profile updated successfully' });
+      const body = {
+        bio: 'Updated bio',
+        meetingUrl: 'https://meet.google.com/abc-defg-hij',
+        subjectIds: ['d0000000-0000-0000-0000-000000000001']
+      };
+
+      const res = await request(app)
+        .put('/api/tutors/profile')
+        .set('X-Requested-With', 'XMLHttpRequest')
+        .set('Cookie', cookieFor('TUTOR'))
+        .send(body);
+
+      expect(res.status).toBe(200);
+      expect(tutorService.updateProfile).toHaveBeenCalledWith(TUTOR_ID, body);
     });
   });
 });

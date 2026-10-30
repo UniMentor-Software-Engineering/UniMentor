@@ -1,19 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const tutorController = require('../controllers/tutorController');
-const AppError = require('../utils/AppError');
-
-// Temporary guard until P3's verifyJWT + requireRole('TUTOR') read the session cookie:
-// replace it with them then. Until that happens, PUT /profile always answers 401.
-const ensureAuth = (req, res, next) => {
-  if (!req.user) {
-    throw new AppError(401, 'Authentication required.', 'UNAUTHENTICATED');
-  }
-  next();
-};
+const { verifyJWT, requireRole } = require('../middlewares/authMiddleware');
 
 router.get('/', tutorController.search);
 router.get('/:id', tutorController.getProfile);
-router.put('/profile', ensureAuth, tutorController.updateProfile);
+// CU-03: only the signed-in tutor can edit their own profile.
+router.put('/profile', verifyJWT, requireRole('TUTOR'), tutorController.updateProfile);
 
 module.exports = router;
