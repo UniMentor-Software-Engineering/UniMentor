@@ -21,7 +21,9 @@ async function findTutors({ subjectId, search, limit = 10, offset = 0 } = {}) {
     const searchParam = `$${params.length}`;
     joins.push('LEFT JOIN tutor_subjects ts_s ON u.id = ts_s.tutor_id');
     joins.push('LEFT JOIN subjects s_search ON ts_s.subject_id = s_search.id');
-    conditions.push(`(u.first_name ILIKE ${searchParam} OR u.last_name ILIKE ${searchParam} OR tp.bio ILIKE ${searchParam} OR s_search.name ILIKE ${searchParam})`);
+    // unaccent (migration 004) on both sides: "garcia" matches "García" and vice versa.
+    const term = `unaccent(${searchParam})`;
+    conditions.push(`(unaccent(u.first_name) ILIKE ${term} OR unaccent(u.last_name) ILIKE ${term} OR unaccent(tp.bio) ILIKE ${term} OR unaccent(s_search.name) ILIKE ${term} OR s_search.code ILIKE ${searchParam})`);
   }
 
   params.push(limit);
@@ -84,6 +86,32 @@ async function findTutorById(tutorId) {
   return rows[0] || null;
 }
 
+// CU-03, step 2: the signed-in tutor's own profile, including the meeting link,
+// which the public profile does not show. A tutor without a profile yet gets nulls.
+async function findOwnProfile(userId) {
+  const query = `
+    SELECT
+      u.id,
+      u.first_name,
+      u.last_name,
+      tp.bio,
+      tp.meeting_url,
+      COALESCE(
+        json_agg(
+          DISTINCT jsonb_build_object('id', s.id, 'code', s.code, 'name', s.name)
+        ) FILTER (WHERE s.id IS NOT NULL), '[]'
+      ) AS subjects
+    FROM users u
+    LEFT JOIN tutor_profiles tp ON u.id = tp.user_id
+    LEFT JOIN tutor_subjects ts ON u.id = ts.tutor_id
+    LEFT JOIN subjects s ON ts.subject_id = s.id
+    WHERE u.id = $1
+    GROUP BY u.id, u.first_name, u.last_name, tp.bio, tp.meeting_url;
+  `;
+  const { rows } = await db.query(query, [userId]);
+  return rows[0] || null;
+}
+
 async function updateProfileAndSubjects(userId, { bio, meetingUrl, subjectIds }) {
   return await db.withTransaction(async (client) => {
     // 1. Upsert tutor profile
@@ -118,6 +146,7 @@ async function checkSubjectsExist(subjectIds) {
 module.exports = {
   findTutors,
   findTutorById,
+  findOwnProfile,
   updateProfileAndSubjects,
   checkSubjectsExist,
 };

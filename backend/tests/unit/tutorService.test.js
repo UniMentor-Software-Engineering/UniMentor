@@ -4,6 +4,8 @@ const AppError = require('../../src/utils/AppError');
 
 jest.mock('../../src/repositories/tutorRepository');
 
+const SUBJECT_ID = 'd0000000-0000-0000-0000-000000000001';
+
 describe('tutorService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -57,7 +59,7 @@ describe('tutorService', () => {
         tutorService.updateProfile('user-uuid', {
           bio: 'a'.repeat(1001),
           meetingUrl: 'https://zoom.us/j/1',
-          subjectIds: ['sub-uuid-1']
+          subjectIds: [SUBJECT_ID]
         })
       ).rejects.toThrow(new AppError(400, 'Bio must not exceed 1000 characters'));
     });
@@ -73,7 +75,7 @@ describe('tutorService', () => {
         tutorService.updateProfile('user-uuid', {
           bio: 'Hi',
           meetingUrl: 'https://evil.com',
-          subjectIds: ['sub-uuid-1']
+          subjectIds: [SUBJECT_ID]
         })
       ).rejects.toThrow(new AppError(400,'A valid HTTPS meeting URL (Google Meet, Zoom, or Teams) is required'));
     });
@@ -85,7 +87,7 @@ describe('tutorService', () => {
         tutorService.updateProfile('user-uuid', {
           bio: 'Hi',
           meetingUrl: 'https://zoom.us/j/123',
-          subjectIds: ['sub-uuid-1']
+          subjectIds: [SUBJECT_ID]
         })
       ).rejects.toThrow(new AppError(400,'One or more selected subjects do not exist'));
     });
@@ -97,11 +99,50 @@ describe('tutorService', () => {
       const res = await tutorService.updateProfile('user-uuid', {
         bio: 'Valid bio',
         meetingUrl: 'https://zoom.us/j/123',
-        subjectIds: ['sub-uuid-1']
+        subjectIds: [SUBJECT_ID]
       });
 
       expect(res.message).toBe('Tutor profile updated successfully');
       expect(tutorRepository.updateProfileAndSubjects).toHaveBeenCalled();
+    });
+  });
+});
+describe('tutorService (CU-03 additions)', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('getOwnProfile returns the profile or throws 404', async () => {
+    tutorRepository.findOwnProfile.mockResolvedValueOnce({ id: 'b1', meeting_url: null });
+    await expect(tutorService.getOwnProfile('b1')).resolves.toEqual({ id: 'b1', meeting_url: null });
+
+    tutorRepository.findOwnProfile.mockResolvedValueOnce(null);
+    await expect(tutorService.getOwnProfile('b1')).rejects.toMatchObject({ status: 404 });
+  });
+
+  it('rejects an empty body with 400 instead of crashing', async () => {
+    await expect(tutorService.updateProfile('user-uuid')).rejects.toMatchObject({ status: 400, code: 'SUBJECTS_REQUIRED' });
+  });
+
+  it('rejects subject IDs that are not UUIDs without querying the database', async () => {
+    await expect(tutorService.updateProfile('user-uuid', {
+      meetingUrl: 'https://zoom.us/j/1', subjectIds: ['not-a-uuid'],
+    })).rejects.toMatchObject({ status: 400, code: 'SUBJECTS_REQUIRED' });
+    expect(tutorRepository.checkSubjectsExist).not.toHaveBeenCalled();
+  });
+
+  it('rejects a bio that is not text', async () => {
+    await expect(tutorService.updateProfile('user-uuid', {
+      bio: 42, meetingUrl: 'https://zoom.us/j/1', subjectIds: [SUBJECT_ID],
+    })).rejects.toMatchObject({ status: 400, code: 'INVALID_BIO' });
+  });
+
+  it('removes repeated subjects before saving', async () => {
+    tutorRepository.checkSubjectsExist.mockResolvedValue(true);
+    await tutorService.updateProfile('user-uuid', {
+      bio: 'Hi', meetingUrl: 'https://zoom.us/j/1', subjectIds: [SUBJECT_ID, SUBJECT_ID],
+    });
+    expect(tutorRepository.checkSubjectsExist).toHaveBeenCalledWith([SUBJECT_ID]);
+    expect(tutorRepository.updateProfileAndSubjects).toHaveBeenCalledWith('user-uuid', {
+      bio: 'Hi', meetingUrl: 'https://zoom.us/j/1', subjectIds: [SUBJECT_ID],
     });
   });
 });

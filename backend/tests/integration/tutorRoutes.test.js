@@ -136,4 +136,29 @@ describe('Tutor Routes Integration Tests', () => {
       expect(tutorService.updateProfile).toHaveBeenCalledWith(TUTOR_ID, body);
     });
   });
+
+  describe('GET /api/tutors/profile (CU-03, step 2)', () => {
+    it('should return 401 without a session instead of treating "profile" as an ID', async () => {
+      const res = await request(app).get('/api/tutors/profile');
+
+      expect(res.status).toBe(401);
+      expect(tutorService.getTutorProfile).not.toHaveBeenCalled();
+    });
+
+    it('should return 403 to a student', async () => {
+      const res = await request(app).get('/api/tutors/profile').set('Cookie', cookieFor('STUDENT'));
+      expect(res.status).toBe(403);
+    });
+
+    it('should return the signed-in tutor\'s own profile', async () => {
+      const profile = { id: TUTOR_ID, bio: 'Hi', meeting_url: 'https://zoom.us/j/1', subjects: [] };
+      tutorService.getOwnProfile.mockResolvedValue(profile);
+
+      const res = await request(app).get('/api/tutors/profile').set('Cookie', cookieFor('TUTOR'));
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual(profile);
+      expect(tutorService.getOwnProfile).toHaveBeenCalledWith(TUTOR_ID);
+    });
+  });
 });

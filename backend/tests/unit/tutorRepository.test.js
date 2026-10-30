@@ -40,15 +40,15 @@ describe('findTutors', () => {
     expect(sql).toContain('LIMIT $2 OFFSET $3');
   });
 
-  it('adds the text search with ILIKE and a single parameter', async () => {
+  it('adds an accent-insensitive text search with ILIKE and a single parameter', async () => {
     db.query.mockResolvedValue({ rows: [] });
 
     await tutorRepository.findTutors({ search: 'laura', limit: 10, offset: 0 });
 
     const [sql, params] = db.query.mock.calls[0];
     expect(params).toEqual(['%laura%', 10, 0]);
-    expect(sql).toContain('u.first_name ILIKE $1');
-    expect(sql).toContain('s_search.name ILIKE $1');
+    expect(sql).toContain('unaccent(u.first_name) ILIKE unaccent($1)');
+    expect(sql).toContain('unaccent(s_search.name) ILIKE unaccent($1)');
     expect(sql).not.toContain('laura');
   });
 
@@ -131,5 +131,17 @@ describe('subjectRepository.findAll', () => {
     db.query.mockResolvedValue({ rows: [{ id: SUBJECT_ID, code: 'COMP101' }] });
 
     await expect(subjectRepository.findAll()).resolves.toEqual([{ id: SUBJECT_ID, code: 'COMP101' }]);
+  });
+});
+
+describe('findOwnProfile', () => {
+  it('returns the profile with the meeting link, or null', async () => {
+    db.query.mockResolvedValueOnce({ rows: [{ id: SUBJECT_ID, meeting_url: 'https://zoom.us/j/1' }] });
+    await expect(tutorRepository.findOwnProfile(SUBJECT_ID)).resolves.toMatchObject({ meeting_url: 'https://zoom.us/j/1' });
+    expect(db.query.mock.calls.at(-1)[0]).toContain('tp.meeting_url');
+    expect(db.query.mock.calls.at(-1)[1]).toEqual([SUBJECT_ID]);
+
+    db.query.mockResolvedValueOnce({ rows: [] });
+    await expect(tutorRepository.findOwnProfile(SUBJECT_ID)).resolves.toBeNull();
   });
 });
