@@ -35,15 +35,15 @@ P4 tiene la parte más difícil. Quien acabe antes, que le ayude con el frontend
 
 ## Resumen de avance (30 oct)
 
-> **PR abiertos, en cadena:** #8 (P3) ← #9 (P1, base `feature/p3-auth-admin`) ← #10 (P2, base `fix/p1-security-headers`). Hay que revisarlos y fusionarlos en ese orden; al fusionar uno, GitHub cambia la base del siguiente a `main`.
+> **Fusionados en `main` el 30 oct, sin revisión de un compañero:** #8 (P3), #9 (P1) y #10 (P2). Conviene que cada uno revise después el PR de su parte en GitHub y deje un comentario. **Después de `git pull`, ejecutar `npm install` y `npm run db:migrate` en `backend/`** (nuevas dependencias `bcryptjs` y `helmet`, y la migración 004).
 
 Estimación por partes: código (backend y tests), frontend, sección del documento y revisión y despliegue.
 
 | Parte | Backend + tests | Frontend | Documento | Revisión / despliegue | **Avance** |
 |---|---|---|---|---|---|
 | P1 Estructura e integración | ✅ (+ cabeceras de seguridad y CSP, PR #9) | ✅ (`api.js`, CSS) | ✅ 4.1 | ❌ despliegue en Render/Vercel, revisión del PR #4 | **~85 %** |
-| P2 BD y búsqueda | ✅ (+ `unaccent`, PR #10) | ✅ búsqueda y perfil (PR #10) | ✅ 4.2 | ⚠️ PR #10 pendiente de revisión | **~95 %** |
-| P3 Autenticación y admin | ✅ | ✅ | ✅ 4.3.1 | ⚠️ falta revisar y fusionar el PR | **~95 %** |
+| P2 BD y búsqueda | ✅ (+ `unaccent`, PR #10) | ✅ búsqueda y perfil (PR #10) | ✅ 4.2 | ✅ PR #6 y #10 en `main` | **~95 %** |
+| P3 Autenticación y admin | ✅ | ✅ | ✅ 4.3.1 | ✅ PR #8 en `main` (falta la revisión de un compañero) | **~95 %** |
 | P4 Reservas | ❌ | ❌ | ❌ 4.3.2 | ❌ | **0 %** |
 | P5 Notificaciones e historial | ❌ | ❌ | ❌ 4.3.3 | ❌ | **0 %** |
 | **Proyecto** | | | | | **~55 %** |
@@ -108,12 +108,12 @@ Se ha probado de punta a punta con un PostgreSQL real: navegador → `api.js` �
 - [x] CU-03 y CU-06 (backend).
 - [x] Sección 4.2 Database Schema.
 - [x] PR #6 fusionado en `main`. **Cada uno tiene que ejecutar `npm run db:migrate`** (y `npm run db:seed` si quiere datos de prueba) en su BD local.
-- [x] Sustituir el `ensureAuth` provisional de `tutorRoutes.js` por `verifyJWT` + `requireRole('TUTOR')` (hecho en la rama de P3, `feature/p3-auth-admin`).
-- [x] Búsqueda sin distinguir acentos (migración `004_add_unaccent.sql`, rama `feature/p2-tutor-frontend`, PR #10). **Hay que ejecutar `npm run db:migrate`.**
+- [x] Sustituir el `ensureAuth` provisional de `tutorRoutes.js` por `verifyJWT` + `requireRole('TUTOR')` (PR #8).
+- [x] Búsqueda sin distinguir acentos (migración `004_add_unaccent.sql`, PR #10). **Hay que ejecutar `npm run db:migrate`.**
 - [x] Frontend: `tutors.html` (CU-06, Find Tutors) y `profile.html` (CU-03, My Profile), con el nuevo `GET /api/tutors/profile` (PR #10).
 - [x] `PUT /api/tutors/profile` ya no da 500 con el body vacío, IDs de asignatura que no son UUID o asignaturas repetidas (PR #10).
 
-### P3: hecho en la rama `feature/p3-auth-admin` (30 oct), pendiente de revisión
+### P3: fusionado en `main` (PR #8, 30 oct)
 
 > Todo lo de [`REVISION-P3.md`](REVISION-P3.md) está hecho y probado con un PostgreSQL real y en el navegador. Se ha partido del borrador del compañero (`UniMentor_P3_English_Fix`), aprovechando sus middlewares y la lógica del login, y corrigiendo lo que no funcionaba.
 
@@ -124,7 +124,8 @@ Se ha probado de punta a punta con un PostgreSQL real: navegador → `api.js` �
 - [x] Frontend: `login.html`, `register.html` y `admin.html`.
 - [x] Tests: 139 en total, cobertura del 98,6 %.
 - [x] Sección 4.3.1 Chain of Responsibility en `04-implementation-details.md` (y el PDF regenerado). Se ha borrado `docs/phase3/`.
-- [ ] **Revisión del PR por otra persona** y fusión a `main`.
+- [x] Fusionado en `main` (PR #8).
+- [ ] Revisión del PR #8 por un compañero (se fusionó sin ella).
 - [ ] Cuando P5 tenga el `NotificationService`: email de bienvenida (CU-01, paso 8) y aviso a la otra parte de las citas canceladas por una suspensión (CU-13). Los sitios están marcados en `authService.js` y `adminService.js`.
 - [ ] Cuando P5 tenga el dashboard (CU-11), cambiar a dónde van estudiantes y tutores después del login (`HOME_BY_ROLE` en `frontend/js/session.js`).
 
