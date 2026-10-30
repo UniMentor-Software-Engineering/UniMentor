@@ -33,6 +33,21 @@ P4 tiene la parte más difícil. Quien acabe antes, que le ayude con el frontend
 
 ---
 
+## Resumen de avance (30 oct)
+
+Estimación por partes: código (backend y tests), frontend, sección del documento y revisión y despliegue.
+
+| Parte | Backend + tests | Frontend | Documento | Revisión / despliegue | **Avance** |
+|---|---|---|---|---|---|
+| P1 Estructura e integración | ✅ | ✅ (`api.js`, CSS) | ✅ 4.1 | ❌ despliegue en Render/Vercel, revisión del PR #4 | **~80 %** |
+| P2 BD y búsqueda | ✅ | ❌ búsqueda y perfil | ✅ 4.2 | ✅ PR #6 en `main` | **~80 %** |
+| P3 Autenticación y admin | ✅ | ✅ | ✅ 4.3.1 | ⚠️ falta revisar y fusionar el PR | **~95 %** |
+| P4 Reservas | ❌ | ❌ | ❌ 4.3.2 | ❌ | **0 %** |
+| P5 Notificaciones e historial | ❌ | ❌ | ❌ 4.3.3 | ❌ | **0 %** |
+| **Proyecto** | | | | | **~50 %** |
+
+---
+
 ## 3. Estado de P1: hecho
 
 Fusionado en `main` con el **PR #4** (rama `feature/p1-skeleton`). El CI pasó en verde.
@@ -88,16 +103,26 @@ Se ha probado de punta a punta con un PostgreSQL real: navegador → `api.js` �
 - [x] CU-03 y CU-06 (backend).
 - [x] Sección 4.2 Database Schema.
 - [x] PR #6 fusionado en `main`. **Cada uno tiene que ejecutar `npm run db:migrate`** (y `npm run db:seed` si quiere datos de prueba) en su BD local.
-- [ ] Cuando P3 tenga `verifyJWT` leyendo la cookie, sustituir el `ensureAuth` provisional de `tutorRoutes.js` por `verifyJWT` + `requireRole('TUTOR')`.
+- [x] Sustituir el `ensureAuth` provisional de `tutorRoutes.js` por `verifyJWT` + `requireRole('TUTOR')` (hecho en la rama de P3, `feature/p3-auth-admin`).
 - [ ] Opcional: búsqueda sin distinguir acentos (`unaccent`): ahora `algebra` no encuentra "Álgebra".
 - [ ] Frontend de búsqueda de tutores y de edición del perfil.
 
-### P3
+### P3: hecho en la rama `feature/p3-auth-admin` (30 oct), pendiente de revisión
 
-> Hay un primer borrador (22 oct), pero no hace todavía ningún caso de uso. **La guía completa, paso a paso, está en [`REVISION-P3.md`](REVISION-P3.md).** El esquema de P2 que necesita ya está en `main` (PR #6).
+> Todo lo de [`REVISION-P3.md`](REVISION-P3.md) está hecho y probado con un PostgreSQL real y en el navegador. Se ha partido del borrador del compañero (`UniMentor_P3_English_Fix`), aprovechando sus middlewares y la lógica del login, y corrigiendo lo que no funcionaba.
 
-- [ ] CU-01, CU-02, CU-13 y CU-14, con los middlewares de JWT, roles y CSRF, el bloqueo tras 5 intentos y los logs de auditoría.
-- [ ] Patrón Chain of Responsibility (para la semana 9).
+- [x] Middlewares de la cadena: `csrfProtection` (para toda la API, en `app.js`), `verifyJWT` (cookie HttpOnly + estado de la cuenta en la BD en cada petición) y `requireRole(...)`.
+- [x] CU-01 (`POST /api/auth/register`), CU-02 (`POST /api/auth/login`, bloqueo de 15 min tras 5 fallos), `POST /api/auth/logout` y `GET /api/auth/me`.
+- [x] CU-13 (`POST /api/admin/users/:id/suspend` en una transacción, `.../reactivate`, `GET /api/admin/users`) y CU-14 (`GET /api/admin/metrics`, `GET /api/admin/audit-logs`).
+- [x] Logs de auditoría en `audit_logs`: `USER_REGISTERED`, `ACCOUNT_LOCKED`, `USER_SUSPENDED`, `USER_REACTIVATED`.
+- [x] Frontend: `login.html`, `register.html` y `admin.html`.
+- [x] Tests: 139 en total, cobertura del 98,6 %.
+- [x] Sección 4.3.1 Chain of Responsibility en `04-implementation-details.md` (y el PDF regenerado). Se ha borrado `docs/phase3/`.
+- [ ] **Revisión del PR por otra persona** y fusión a `main`.
+- [ ] Cuando P5 tenga el `NotificationService`: email de bienvenida (CU-01, paso 8) y aviso a la otra parte de las citas canceladas por una suspensión (CU-13). Los sitios están marcados en `authService.js` y `adminService.js`.
+- [ ] Cuando P5 tenga el dashboard (CU-11), cambiar a dónde van estudiantes y tutores después del login (`HOME_BY_ROLE` en `frontend/js/session.js`).
+
+**Para P2, P4 y P5:** para proteger una ruta, `router.post('/...', verifyJWT, requireRole('STUDENT'), controller.accion)`. El usuario está en `req.user` (`{ id, role }`). Las peticiones que cambian datos necesitan la cabecera `X-Requested-With`, que `api.js` ya pone (en los tests con Supertest, `.set('X-Requested-With', 'XMLHttpRequest')`). P4: al reservar, comprobar que el tutor sigue `ACTIVE`.
 
 ### P4, P5
 

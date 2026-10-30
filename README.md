@@ -73,6 +73,8 @@ Requirements: [Node.js 22+](https://nodejs.org) and [Docker Desktop](https://www
 
    Open `http://localhost:5500`. It must be port 5500 (or 127.0.0.1:5500), which is the origin allowed by CORS in `.env` (`FRONTEND_ORIGIN`).
 
+   Sign in at `login.html` with a seed account (password `Password123!`): `admin@unimentor.edu` opens the admin panel (`admin.html`); `laura.garcia@unimentor.edu` and `carlos.martin@unimentor.edu` are tutors and `diego.student@unimentor.edu` is a student. New accounts can register at `register.html` with an email from `ALLOWED_EMAIL_DOMAINS` (by default `myuax.com` and `unimentor.edu`).
+
 To stop everything: `Ctrl+C` in both terminals and `docker stop unimentor-pg`.
 
 ## Scripts (backend)
@@ -89,7 +91,7 @@ To stop everything: `Ctrl+C` in both terminals and `docker stop unimentor-pg`.
 
 ## Deployment
 
-- **Backend + database (Render):** New > Blueprint > this repository (`render.yaml`). Then set `FRONTEND_ORIGIN` to the Vercel URL Create the tables by running `npm run db:migrate` from your machine with `DATABASE_URL` set to the database's *External Database URL* and `DB_SSL=true` (repeat it after every merge that adds a migration).
+- **Backend + database (Render):** New > Blueprint > this repository (`render.yaml`). Then set `FRONTEND_ORIGIN` to the Vercel URL (and, if needed, `ALLOWED_EMAIL_DOMAINS`). Create the tables by running `npm run db:migrate` from your machine with `DATABASE_URL` set to the database's *External Database URL* and `DB_SSL=true` (repeat it after every merge that adds a migration).
 - **Frontend (Vercel):** import the repository and set **Root Directory** to `frontend` (framework preset: Other, no build command). Then set the Render URL in `frontend/js/config.js`.
 
 ## Documentation PDFs
