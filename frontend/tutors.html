@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Find Tutors · UniMentor</title>
+    <link rel="stylesheet" href="css/base.css" />
+    <link rel="stylesheet" href="css/tutors.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="brand" href="index.html">UniMentor</a>
+        <nav class="header-actions">
+          <a class="btn btn-secondary" href="login.html">Sign in</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container stack">
+      <h1>Find Tutors</h1>
+      <p class="text-muted">Search by name, subject or topic. Tutors with the earliest free slot come first.</p>
+
+      <form id="search-form" class="card search-form" role="search">
+        <div class="form-field">
+          <label for="search">Search</label>
+          <input id="search" name="search" type="search" class="input" maxlength="100" placeholder="e.g. Algebra, García, SOFT301" />
+        </div>
+        <div class="form-field">
+          <label for="subject">Subject</label>
+          <select id="subject" name="subject" class="input">
+            <option value="">All subjects</option>
+          </select>
+        </div>
+        <button type="submit" class="btn btn-primary">Search</button>
+      </form>
+
+      <p id="results-status" class="text-muted" aria-live="polite"></p>
+      <div id="results" class="tutor-grid"></div>
+      <div class="results-footer">
+        <button id="load-more" type="button" class="btn btn-secondary" hidden>Load more</button>
+      </div>
+    </main>
+
+    <script type="module" src="js/tutors.js"></script>
+  </body>
+</html>

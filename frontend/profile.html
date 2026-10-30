@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>My Profile · UniMentor</title>
+    <link rel="stylesheet" href="css/base.css" />
+    <link rel="stylesheet" href="css/tutors.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="brand" href="index.html">UniMentor</a>
+        <nav class="header-actions">
+          <span id="user-name" class="text-muted"></span>
+          <a class="btn btn-secondary" href="tutors.html">Find tutors</a>
+          <button id="logout-button" type="button" class="btn btn-secondary">Sign out</button>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container">
+      <section class="card stack profile-card" aria-labelledby="profile-title">
+        <h1 id="profile-title">My Profile</h1>
+        <p class="text-muted">Students see your bio and subjects when they search for tutors. The meeting link is only shared with booked students.</p>
+
+        <form id="profile-form" class="stack" novalidate hidden>
+          <div class="form-field">
+            <label for="bio">Bio</label>
+            <textarea id="bio" name="bio" class="input" maxlength="1000" aria-describedby="bio-counter bio-error"></textarea>
+            <div class="field-footer">
+              <p id="bio-error" class="field-error"></p>
+              <p id="bio-counter" class="text-muted"></p>
+            </div>
+          </div>
+
+          <div class="form-field">
+            <label for="meetingUrl">Meeting link</label>
+            <input id="meetingUrl" name="meetingUrl" type="url" class="input" placeholder="https://meet.google.com/abc-defg-hij" required aria-describedby="meetingUrl-hint meetingUrl-error" />
+            <p id="meetingUrl-hint" class="text-muted">Google Meet, Zoom or Microsoft Teams, starting with https://</p>
+            <p id="meetingUrl-error" class="field-error"></p>
+          </div>
+
+          <fieldset class="form-field" aria-describedby="subjects-error">
+            <legend>Subjects you teach</legend>
+            <div id="subject-options" class="subject-options"></div>
+            <p id="subjects-error" class="field-error"></p>
+          </fieldset>
+
+          <button type="submit" class="btn btn-primary">Save Profile</button>
+        </form>
+      </section>
+    </main>
+
+    <script type="module" src="js/profile.js"></script>
+  </body>
+</html>

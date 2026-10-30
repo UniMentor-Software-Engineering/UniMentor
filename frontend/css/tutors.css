@@ -1,0 +1,123 @@
+/* Find Tutors (CU-06) and My Profile (CU-03). Reuses the tokens of base.css. */
+
+/* ---------- Search ---------- */
+.search-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+}
+
+.search-form .form-field {
+  flex: 1 1 14rem;
+}
+
+.tutor-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+  gap: var(--space-4);
+}
+
+.tutor-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.tutor-card h3 {
+  font-size: var(--font-size-lg);
+}
+
+.tutor-bio {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.subject-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: 0;
+  list-style: none;
+}
+
+.badge-subject {
+  background: var(--color-primary-soft);
+  color: var(--color-primary-hover);
+}
+
+.next-slot {
+  margin-top: auto;
+  font-size: var(--font-size-sm);
+}
+
+.results-footer {
+  display: flex;
+  justify-content: center;
+}
+
+.empty-state {
+  padding: var(--space-8) var(--space-4);
+  text-align: center;
+  color: var(--color-text-muted);
+}
+
+/* ---------- My Profile ---------- */
+.profile-card {
+  max-width: 44rem;
+}
+
+.profile-card textarea {
+  min-height: 8rem;
+  resize: vertical;
+}
+
+.field-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+fieldset.form-field {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+fieldset.form-field legend {
+  margin-bottom: var(--space-1);
+  padding: 0;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.subject-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: var(--space-2);
+}
+
+.subject-options label {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  font-weight: 400;
+  cursor: pointer;
+}
+
+.subject-options input {
+  margin-top: 0.3rem;
+}
+
+.subject-code {
+  display: block;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}

@@ -6,8 +6,8 @@ import { api } from './api.js';
 // TODO(P5): point STUDENT and TUTOR to the CU-11 dashboard when it exists.
 const HOME_BY_ROLE = {
   ADMIN: 'admin.html',
-  TUTOR: 'index.html',
-  STUDENT: 'index.html',
+  TUTOR: 'profile.html', // CU-03
+  STUDENT: 'tutors.html', // CU-06
 };
 
 export function homeFor(role) {
