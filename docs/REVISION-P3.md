@@ -1,6 +1,6 @@
-# Revisión de P3: Autenticación y administración
+# P3: Autenticación y administración. Guía de lo que falta
 
-*Revisión del 22 de octubre de 2026 (semana 7), sobre los archivos sin commitear de `main`:*
+*Revisión del 22 de octubre de 2026, actualizada el 30 de octubre (semana 8). Se refiere a estos archivos, que ya están en `main` (commit `f867fc2`). La carpeta `P3_Autenticacion_y_Admin` que se compartió tiene exactamente los mismos archivos, así que no aporta nada nuevo: hay que partir de lo que hay en el repo.*
 
 - *`backend/src/middlewares/auth.middleware.js`*
 - *`backend/src/middlewares/security.middleware.js`*
@@ -9,6 +9,14 @@
 - *`docs/phase3/design_patterns_chain_of_responsibility_p3.md`*
 
 Este documento recoge lo que falta o hay que corregir en la parte de P3 para que cumpla lo acordado en el reparto (`ESTADO-DEL-PROYECTO.md`) y en la Fase 1 (`docs/phase1/`). Está ordenado por prioridad. **El patrón se presenta en la semana 9**, y el documento tiene que enseñar código real que funcione, así que conviene tener hechos los apartados 1 a 4 antes de esa fecha.
+
+> **Novedades desde el 22 de octubre**
+>
+> - **El esquema de P2 ya está en `main`** (PR #6). Todo lo que necesita P3 existe en la BD: `users.status` (`ACTIVE`/`SUSPENDED`), `failed_login_count`, `locked_until` y la tabla `audit_logs` de solo inserción. Ya no hay que partir de otra rama.
+> - La tabla `users` guarda el nombre en **`first_name` y `last_name`** (no hay `full_name`). Los apartados 2 y 3 ya están adaptados.
+> - **Hay cuentas de prueba** al ejecutar `npm run db:seed`. La contraseña de todas es `Password123!`: `admin@unimentor.edu` (ADMIN), `laura.garcia@unimentor.edu` y `carlos.martin@unimentor.edu` (TUTOR) y `diego.student@unimentor.edu` (STUDENT). Sirven para probar el login y la suspensión sin registrar a nadie.
+> - El error de lint de `auth.middleware.js` ya está corregido y el CI está en verde. Aun así, los archivos de P3 tienen un **0 % de cobertura** y bajan la media del proyecto, así que cada PR de P3 tiene que traer sus tests (apartado 8).
+> - P2 protege `PUT /api/tutors/profile` con un `ensureAuth` **provisional** que siempre responde 401. Cuando `verifyJWT` funcione, hay que sustituirlo (apartado 7).
 
 ---
 
@@ -26,25 +34,35 @@ Este documento recoge lo que falta o hay que corregir en la parte de P3 para que
 | CU-13 Suspender cuentas | ❌ Controlador simulado |
 | CU-14 Métricas y auditoría | ❌ No existe |
 | Tests | ❌ Ninguno |
-| Lint / CI | ❌ `npm run lint` falla (`auth.middleware.js:15`, `'error' is defined but never used`) |
+| Lint / CI | ✅ Pasa (corregido el 22 oct) · ❌ los archivos de P3 tienen un 0 % de cobertura |
 | Frontend (login, registro, panel de admin) | ❌ No existe |
 | Documento (Chain of Responsibility) | ⚠️ Media página de 2, con un error de concepto y en una carpeta equivocada |
-| Rama + PR + revisión | ❌ Los archivos están sin commitear en `main` |
+| Rama + PR + revisión | ⚠️ El borrador se subió directamente a `main`. Lo que queda, con una rama y un PR por caso de uso |
 
 Lo que está bien: la idea de la cadena de middlewares `verifyJWT → requireRole → … → controlador` es justo lo que pide el patrón, y `requireRole(...roles)` como función que devuelve un middleware es una buena forma de reutilizarlo.
 
 ### Cómo se ha comprobado
 
-- `npx eslint src/middlewares src/routes`: 1 error.
+- `npx eslint src/middlewares src/routes`: 1 error el 22 oct (ya corregido).
 - `node -e "require('./src/middlewares/security.middleware')"`: `Error: Cannot find module 'express-rate-limit'`.
 - `grep` de `admin.routes` y `auth.middleware` en `src/` y `tests/`: no se usan en ningún sitio, así que nada de esto está conectado a la app.
-- Se ha comparado con los CU-01, 02, 13 y 14 y el NFR-02 de `02-requirements.pdf`, con los diagramas de secuencia B (login) y D (suspensión) y el ADR 4 de `03-architecture.pdf`, y con el esquema de la rama `fix/p2-schema-review` de P2.
+- Se ha comparado con los CU-01, 02, 13 y 14 y el NFR-02 de `02-requirements.pdf`, con los diagramas de secuencia B (login) y D (suspensión) y el ADR 4 de `03-architecture.pdf`, y con el esquema de P2 (migraciones `001`–`003` de `backend/src/database/migrations/`).
 
 ---
 
 ## 0. Antes de empezar
 
-- [ ] **Partir del esquema nuevo de P2.** Los campos que necesita P3 (`users.status`, `failed_login_count`, `locked_until` y la tabla `audit_logs` de solo inserción) están en la rama `fix/p2-schema-review`, que todavía **no está en `main`**. Hasta que se fusione, crear la rama de P3 a partir de ella (`git checkout -b feature/cu-02-login origin/fix/p2-schema-review`) o esperar a que se fusione.
+- [ ] **Preparar la BD local con el esquema de P2**, que ya está en `main`:
+
+  ```bash
+  git checkout main && git pull
+  cd backend
+  npm install
+  npm run db:migrate   # crea o actualiza las tablas
+  npm run db:seed      # cuentas de prueba (contraseña Password123!)
+  ```
+
+  Para ver las columnas exactas, mirar `backend/src/database/migrations/001_initial_schema.sql` o la sección 4.2 de `docs/phase2/04-implementation-details.md`.
 - [ ] Crear una rama por caso de uso (`feature/cu-01-register`, `feature/cu-02-login`, `feature/cu-13-suspend`, `feature/cu-14-metrics`), cada una con su PR revisado por otra persona.
 - [ ] Seguir las capas del proyecto, como el módulo de salud: `routes → controllers → services → repositories`. El SQL va solo en los repositories y las reglas de negocio en los services.
 - [ ] Nombrar los archivos como el resto del proyecto: `adminRoutes.js`, `authRoutes.js`, `authController.js`, `authService.js`, `userRepository.js`… (no `admin.routes.js`).
@@ -119,8 +137,8 @@ Lo que está bien: la idea de la cadena de middlewares `verifyJWT → requireRol
 
 - [ ] Instalar **`bcryptjs`** (JavaScript puro: no necesita compilar nada en Windows ni en Render) y hashear con un coste de 10 o más (NFR-02), por ejemplo 12.
 - [ ] Validar los datos (paso 4):
-  - `fullName` obligatorio y con una longitud máxima.
-  - `email` con formato válido, pasado a minúsculas y **de un dominio universitario autorizado** (precondición 2). Poner los dominios en una variable de entorno (`ALLOWED_EMAIL_DOMAINS=myuax.com,…`), añadirla a `env.js` y a `.env.example`.
+  - `firstName` y `lastName` obligatorios y con una longitud máxima de 100 caracteres (las columnas `first_name` y `last_name` son `VARCHAR(100)`).
+  - `email` con formato válido, pasado a minúsculas y **de un dominio universitario autorizado** (precondición 2). Poner los dominios en una variable de entorno (`ALLOWED_EMAIL_DOMAINS=myuax.com,…`), añadirla a `env.js` y a `.env.example`. En local, incluir también `unimentor.edu`, el dominio de las cuentas de prueba.
   - Contraseña de al menos 8 caracteres, con letras y dígitos: `/^(?=.*[A-Za-z])(?=.*\d).{8,72}$/`. bcrypt ignora lo que pase de 72 bytes. Si no cumple, responder 400 indicando qué falta (A2).
   - **`role` solo puede ser `STUDENT` o `TUTOR`.** Si se acepta lo que llegue, cualquiera se puede registrar como `ADMIN`.
 - [ ] Email duplicado: responder 409 *"This email address is already in use."* (A1). Además de comprobarlo antes, capturar el error `23505` (violación de `UNIQUE`) del `INSERT`, porque dos registros a la vez pueden pasar los dos la comprobación.
@@ -149,7 +167,7 @@ Seguir el diagrama de secuencia B de `03-architecture.pdf`, en este orden:
   ```
 
   Al bloquear se reinicia el contador, para que cuando pasen los 15 minutos el usuario vuelva a tener 5 intentos.
-- [ ] Si la contraseña es correcta: `UPDATE users SET failed_login_count = 0, locked_until = NULL`, generar el JWT, ponerlo en la cookie (apartado 1) y responder 200 con `{ id, fullName, role }`. El frontend no puede leer la cookie (`HttpOnly`), así que necesita esos datos en la respuesta para saber a qué panel llevar al usuario (paso 6).
+- [ ] Si la contraseña es correcta: `UPDATE users SET failed_login_count = 0, locked_until = NULL`, generar el JWT, ponerlo en la cookie (apartado 1) y responder 200 con `{ id, firstName, lastName, role }`. El frontend no puede leer la cookie (`HttpOnly`), así que necesita esos datos en la respuesta para saber a qué panel llevar al usuario (paso 6).
 - [ ] **Borrar `security.middleware.js` (`loginLimiter`)**. No cumple el requisito: `express-rate-limit` no está instalado; cuenta todas las peticiones, no solo los fallos (un usuario que acierta también gasta intentos); va por IP y no por cuenta (en una universidad muchos alumnos comparten IP); y guarda los contadores en memoria, que se pierden cada vez que Render reinicia el servicio. Si además se quiere un límite general por IP contra ataques de fuerza bruta, que sea un extra con un límite alto, no la implementación del CU-02.
 - [ ] Crear también `POST /api/auth/logout` (borra la cookie con `res.clearCookie` y los mismos atributos) y `GET /api/auth/me` (devuelve el usuario de `req.user`, para que el frontend sepa al recargar si hay sesión).
 
@@ -186,7 +204,7 @@ Seguir el diagrama de secuencia B de `03-architecture.pdf`, en este orden:
   ```
 
 - [ ] Si se suspende a un tutor, bloquear también sus slots futuros que sigan libres (`AVAILABLE`), para que nadie pueda reservar con él. Avisar a P4 de que, al reservar, compruebe que el tutor está activo.
-- [ ] **Coordinar con P2 el nombre del estado.** La Fase 1 dice `BLOCKED` y el ENUM `slot_status` de P2 usa `UNAVAILABLE`. Que el documento y el código digan lo mismo.
+- [ ] **Nombre del estado del slot:** el ENUM `slot_status` del esquema usa `UNAVAILABLE` (la Fase 1 decía `BLOCKED`). Usar `UNAVAILABLE` en el código y en el documento.
 - [ ] Después del `COMMIT`, avisar por email a la otra parte de cada cita cancelada, con el `NotificationService` de P5 (igual que en CU-09).
 - [ ] Responder 200 con el usuario actualizado para que el panel cambie el estado al momento (paso 6).
 - [ ] Crear `GET /api/admin/users` (paso 1): el listado de usuarios para el panel, con búsqueda por nombre o email, filtro por rol y estado y paginación (`limit` de 1 a 50, `offset` de 0 o más). Sin `password_hash`.
@@ -228,7 +246,8 @@ Seguir el diagrama de secuencia B de `03-architecture.pdf`, en este orden:
 
 - [ ] En `src/routes/index.js`, montar `router.use('/auth', authRoutes)` y `router.use('/admin', adminRoutes)` en el sitio donde ya están comentados.
 - [ ] Borrar el controlador simulado `banUser` de `admin.routes.js`.
-- [ ] Avisar a P2 (CU-03), P4 y P5 de que ya pueden proteger sus rutas con `verifyJWT` y `requireRole('TUTOR')` o `requireRole('STUDENT')`. Por ejemplo, P2 lo necesita para `PUT /api/tutors/profile` (apartado 3 de `REVISION-P2.md`).
+- [ ] Avisar a P2 (CU-03), P4 y P5 de que ya pueden proteger sus rutas con `verifyJWT` y `requireRole('TUTOR')` o `requireRole('STUDENT')`.
+- [ ] **Sustituir el `ensureAuth` provisional de `backend/src/routes/tutorRoutes.js`** por la cadena real: `router.put('/profile', verifyJWT, requireRole('TUTOR'), tutorController.updateProfile)`. Después, borrar `ensureAuth` y comprobar que el test de integración `PUT /api/tutors/profile` sin cookie sigue dando 401.
 
 ---
 
