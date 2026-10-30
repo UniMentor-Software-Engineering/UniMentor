@@ -1,6 +1,6 @@
 # Estado del proyecto UniMentor
 
-*Última actualización: 19 de octubre de 2026 (semana 7)*
+*Última actualización: 30 de octubre de 2026 (semana 8)*
 
 Este documento resume en qué punto está el proyecto, qué falta y cómo ponerse a trabajar. Si eres del equipo, léelo antes de crear tu rama.
 
@@ -80,12 +80,17 @@ Se ha probado de punta a punta con un PostgreSQL real: navegador → `api.js` �
 
 - [ ] Maquetación final del documento completo cuando P2–P5 entreguen sus secciones.
 
-### P2 (también esta semana)
+### P2: casi hecho (rama `fix/p2-schema-review`)
 
-> Hay una primera entrega en `main` (21 oct), pero le faltan cosas. La lista completa de correcciones está en [`REVISION-P2.md`](REVISION-P2.md). La sección 1 (esquema) bloquea a P3, P4 y P5.
+> Las correcciones de [`REVISION-P2.md`](REVISION-P2.md) están hechas en la rama `fix/p2-schema-review` y probadas con un PostgreSQL real (30 oct): migraciones 001–003 (incluido `session_type`), seed funcionando con la contraseña `Password123!`, CU-03, CU-06, `GET /api/subjects`, 35 tests y la sección 4.2 del documento.
 
-- [ ] `schema.sql`, migraciones y datos de prueba.
-- [ ] CU-03 y CU-06.
+- [x] Migraciones (`npm run db:migrate`) y datos de prueba (`npm run db:seed`).
+- [x] CU-03 y CU-06 (backend).
+- [x] Sección 4.2 Database Schema.
+- [ ] **Abrir el PR de `fix/p2-schema-review` a `main`, revisarlo y fusionarlo.** Después, cada uno ejecuta `npm run db:migrate` en su BD local.
+- [ ] Cuando P3 tenga `verifyJWT` leyendo la cookie, sustituir el `ensureAuth` provisional de `tutorRoutes.js` por `verifyJWT` + `requireRole('TUTOR')`.
+- [ ] Opcional: búsqueda sin distinguir acentos (`unaccent`): ahora `algebra` no encuentra "Álgebra".
+- [ ] Frontend de búsqueda de tutores y de edición del perfil.
 
 ### P3
 

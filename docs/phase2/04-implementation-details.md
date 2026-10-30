@@ -136,58 +136,303 @@ For `0.x` versions the caret is stricter (`^0.4.1` means `<0.5.0`), because any 
 
 ---
 
-## 4.2. Database Schema and Persistence Architecture (P2)
+## 4.2 Database Schema and Persistence Architecture
 
-The persistence layer of UniMentor is designed using PostgreSQL. It adheres strictly to normalization standards and implements robust constraints directly at the database engine level.
-
-### 4.2.1. Relational Model and Normalization (1NF, 2NF, 3NF)
-
-#### First Normal Form (1NF)
-A table is in 1NF if all attributes contain atomic values and there are no repeating groups.
-- **Atomicity:** Attributes such as `email`, `full_name`, `hourly_rate`, and `meeting_url` represent single, non-decomposable data units.
-- **No Repeating Groups:** Instead of storing multiple subjects as comma-separated values or array fields inside the tutor's record, each subject association is stored as an individual row in the bridge table `tutor_subjects`.
-
-#### Second Normal Form (2NF)
-A relation is in 2NF if it satisfies 1NF and all non-key attributes are fully dependent on the primary key (no partial dependencies).
-- The bridge table `tutor_subjects` has a composite primary key:
-  $$\text{PK} = (\text{tutor\_profile\_id}, \text{subject\_id})$$
-  It contains no redundant descriptive attributes (such as `subject_name`), eliminating partial dependency. Subject descriptions reside solely in `subjects`.
-- Entities with single-column primary keys (`users`, `tutor_profiles`, `appointments`) inherently satisfy 2NF.
-
-#### Third Normal Form (3NF)
-A relation is in 3NF if it satisfies 2NF and there are no transitive dependencies (non-prime attributes must depend only on the candidate key).
-- **Separation of Profile and Account:** Storing tutor-specific attributes (`bio`, `hourly_rate`, `meeting_url`) directly in `users` would create transitive dependencies and null fields for students and administrators. Separating this entity into `tutor_profiles` ($users \xrightarrow{1:1} tutor\_profiles$) ensures pure 3NF compliance.
-- **Subject Catalog Decoupling:** Updating an academic subject's title updates a single row in `subjects`, preventing update anomalies across thousands of historical appointments.
+The persistence layer of the UniMentor platform is implemented on PostgreSQL 16/17. It enforces data integrity, business rules, and concurrency guarantees directly within the database engine rather than relying solely on application-level checks. This implementation realizes ADR 2 (PostgreSQL), which was chosen precisely for its transactional guarantees and engine-level constraints.
 
 ---
 
-### 4.2.2. Technical Justification of Data Types & Constraints
+### 4.2.1 Relational Data Model & Entity-Relationship Structure
 
-1. **Universally Unique Identifiers (`UUIDv4`):**
-   - **Protection against IDOR & Enumeration:** Auto-incrementing integers (`1, 2, 3...`) expose sequential IDs through public endpoints, enabling enumeration attacks. UUIDs are cryptographically unguessable.
-   - **Distributed Readiness:** Enables client-side or microservice ID generation without database sequence locking.
+The relational model consists of seven primary tables structured to satisfy referential integrity, authentication constraints, scheduling rules, and audit requirements:
 
-2. **Timezone-Aware Timestamps (`TIMESTAMPTZ` & `TSTZRANGE`):**
-   - System timestamps are stored as `TIMESTAMPTZ` (UTC) to eliminate Daylight Saving Time (DST) shift errors across regions.
-   - Time intervals in `availability_slots` and `appointments` use PostgreSQL's native `TSTZRANGE` type, treating $[t_{\text{start}}, t_{\text{end}})$ as a single mathematical range.
+```
+  ┌───────────────────────────────────────────────────────────┐
+  │                           USERS                           │
+  ├───────────────────────────────────────────────────────────┤
+  │ id (PK, UUID)                                             │
+  │ email (VARCHAR, UNIQUE)                                   │
+  │ password_hash (VARCHAR)                                   │
+  │ first_name (VARCHAR), last_name (VARCHAR)                 │
+  │ role (ENUM user_role: 'STUDENT', 'TUTOR', 'ADMIN')        │
+  │ status (ENUM user_status: 'ACTIVE', 'SUSPENDED')          │
+  │ failed_login_count (INT), locked_until (TIMESTAMPTZ)      │
+  │ late_cancellation_count (INT)                             │
+  │ created_at (TIMESTAMPTZ), updated_at (TIMESTAMPTZ)        │
+  └─────────────┬───────────────────────────────┬─────────────┘
+                │ 1:1                           │ 1:N
+                ▼                               ▼
+  ┌───────────────────────────┐   ┌───────────────────────────┐
+  │      TUTOR_PROFILES       │   │        AUDIT_LOGS         │
+  ├───────────────────────────┤   ├───────────────────────────┤
+  │ user_id (PK, FK -> users) │   │ id (PK, UUID)             │
+  │ bio (TEXT)                │   │ actor_id (FK -> users)    │
+  │ meeting_url (VARCHAR)     │   │ action (VARCHAR)          │
+  │ created_at (TIMESTAMPTZ)  │   │ target_type (VARCHAR)     │
+  │ updated_at (TIMESTAMPTZ)  │   │ target_id (UUID)          │
+  └─────────────┬─────────────┘   │ details (JSONB)           │
+                │ 1:N             │ created_at (TIMESTAMPTZ)  │
+                ▼                 └───────────────────────────┘
+  ┌───────────────────────────┐   ┌───────────────────────────┐
+  │      TUTOR_SUBJECTS       │   │         SUBJECTS          │
+  ├───────────────────────────┤   ├───────────────────────────┤
+  │ tutor_id (PK, FK -> users)├───┤ id (PK, UUID)             │
+  │ subject_id (PK, FK)       │N:1│ code (VARCHAR, UNIQUE)    │
+  │ created_at (TIMESTAMPTZ)  │   │ name (VARCHAR)            │
+  └───────────────────────────┘   │ department (VARCHAR)      │
+                                  │ created_at, updated_at    │
+                                  └───────────────────────────┘
 
-3. **PostgreSQL Native Enumerations (`ENUM`):**
-   - Declared types: `user_role`, `slot_status`, `appointment_status`, and `session_type`.
-   - Rejects invalid values at the database level and optimizes storage to 4 bytes per column.
+  ┌───────────────────────────────────────────────────────────┐
+  │                    AVAILABILITY_SLOTS                     │
+  ├───────────────────────────────────────────────────────────┤
+  │ id (PK, UUID)                                             │
+  │ tutor_id (FK -> users)                                    │
+  │ time_range (TSTZRANGE)                                    │
+  │ status (ENUM slot_status: AVAILABLE, BOOKED, UNAVAILABLE) │
+  │ created_at (TIMESTAMPTZ), updated_at (TIMESTAMPTZ)        │
+  │ UNIQUE (id, tutor_id, time_range)  <── Composite Candidate│
+  └─────────────────────────────┬─────────────────────────────┘
+                                │ 1:1 (Active Slot Booking)
+                                ▼
+  ┌───────────────────────────────────────────────────────────┐
+  │                       APPOINTMENTS                        │
+  ├───────────────────────────────────────────────────────────┤
+  │ id (PK, UUID)                                             │
+  │ slot_id (FK -> availability_slots)                        │
+  │ tutor_id (FK -> users)          <── Deliberate            │
+  │ student_id (FK -> users)                                  │
+  │ time_range (TSTZRANGE)          <── Denormalization       │
+  │ session_type (ENUM: QUICK_CHECK, STANDARD, DEEP_DIVE)     │
+  │ status (ENUM: CONFIRMED, COMPLETED, CANCELLED)            │
+  │ student_inquiry (TEXT), tutor_notes (TEXT)                │
+  │ student_feedback (TEXT)                                   │
+  │ is_late_cancellation (BOOLEAN)                            │
+  │ cancelled_by (FK -> users), cancelled_at (TIMESTAMPTZ)    │
+  │ created_at (TIMESTAMPTZ), updated_at (TIMESTAMPTZ)        │
+  │ FK (slot_id, tutor_id, time_range) -> slots               │
+  └───────────────────────────────────────────────────────────┘
+```
 
-4. **Exclusion Constraints (`EXCLUDE USING gist`) — Business Rule BR-CONF-05:**
-   - Enforces zero overlaps at the database engine level via the `btree_gist` extension:
+---
+
+### 4.2.2 Normalization Analysis and Deliberate Denormalization
+
+The relational schema has been designed in compliance with classical relational theory and evaluated against Codd's Normal Forms:
+
+#### 1. First Normal Form (1NF)
+A relation is in 1NF if every field contains only atomic (indivisible) values and there are no repeating groups.
+* **Attribute Atomicity**: Every column across all entities (`email`, `first_name`, `last_name`, `code`, `meeting_url`) holds a single, indivisible scalar value.
+* **Absence of Repeating Groups**: Tutor academic specializations are not stored as serialized JSON arrays or delimited strings in `tutor_profiles`. Instead, each qualification is modeled as an individual tuple in the junction table `tutor_subjects`.
+
+#### 2. Second Normal Form (2NF)
+A relation is in 2NF if it satisfies 1NF and all non-prime attributes are fully functionally dependent on the entire primary key.
+* In `tutor_subjects`, the primary key is composite: `(tutor_id, subject_id)`. The only non-key attribute is `created_at`, which documents the timestamp when that specific association was established. Descriptive subject data (`name`, `department`) is kept exclusively in `subjects`, avoiding partial key dependencies.
+* All other tables (`users`, `tutor_profiles`, `subjects`, `availability_slots`, `appointments`, `audit_logs`) use single-column primary keys (`id` or `user_id`), rendering partial functional dependency structurally impossible.
+
+#### 3. Third Normal Form (3NF) and the Intentional Denormalization of `appointments`
+A relation is in 3NF if it satisfies 2NF and contains no transitive dependencies (no non-prime attribute depends on another non-prime attribute).
+* **Role Specialization**: Tutor-specific metadata (`bio`, `meeting_url`) is segregated into `tutor_profiles` via a 1:1 relation referencing `users(id)`. Placing these attributes directly in `users` would introduce null values for student accounts and violate functional cohesion.
+* **Strategic Denormalization in `appointments`**:
+  Under strict 3NF rules, the `appointments` relation would only require `slot_id` and `student_id`. The attributes `tutor_id` and `time_range` are transitively dependent on `slot_id` through `availability_slots`:
+  $$\text{slot\_id} \to (\text{tutor\_id}, \text{time\_range})$$
+  However, removing these columns would mean that enforcing business rule **BR-CONF-05** (preventing a student from booking two concurrent appointments across different tutors) could only be achieved via:
+  1. An application-level read-before-write query, which is vulnerable to race conditions under concurrent client execution.
+  2. A heavy PL/pgSQL lock trigger escalating table-level locks.
+
+  To solve this concurrency challenge, `tutor_id` and `time_range` are deliberately denormalized into `appointments`. This enables PostgreSQL to enforce an engine-level exclusion constraint (`EXCLUDE USING gist`) directly on the student's schedule.
+
+* **Guaranteed Consistency via Composite Foreign Key**:
+  Denormalization typically introduces the risk of data divergence (e.g., an appointment row referencing a slot ID but containing mismatched tutor or timing data). To eliminate this risk, `availability_slots` defines a composite unique constraint:
+  ```sql
+  CONSTRAINT uq_slot_tutor_range UNIQUE (id, tutor_id, time_range);
+  ```
+  `appointments` enforces a matching composite foreign key constraint:
+  ```sql
+  FOREIGN KEY (slot_id, tutor_id, time_range)
+      REFERENCES availability_slots (id, tutor_id, time_range)
+      ON DELETE RESTRICT;
+  ```
+  This guarantees that the denormalized columns can never diverge from their source slot, ensuring robust concurrency protection without compromising relational integrity.
+
+---
+
+### 4.2.3 Concurrency Control and Double-Booking Mitigation (NFR-03, BR-CONF-05)
+
+A core requirement of Phase 2 is preventing race conditions during appointment scheduling. Concurrency protection is achieved through three complementary database-level mechanisms:
+
+1. **Tutor Slot Overlap Prevention (`no_tutor_slot_overlap`)**:
+   Enforced on `availability_slots` using PostgreSQL's native range types (`TSTZRANGE`) and the `btree_gist` extension:
    ```sql
    CONSTRAINT no_tutor_slot_overlap EXCLUDE USING gist (
        tutor_id WITH =,
        time_range WITH &&
    );
    ```
-   - Even under concurrent requests executing at the exact same millisecond, PostgreSQL guarantees transactional consistency, preventing double bookings.
+   This ensures that no single tutor can publish overlapping availability intervals.
+
+2. **Student Appointment Overlap Prevention (`no_student_appointment_overlap`)**:
+   Enforced directly on `appointments`:
+   ```sql
+   CONSTRAINT no_student_appointment_overlap EXCLUDE USING gist (
+       student_id WITH =,
+       time_range WITH &&
+   ) WHERE (status <> 'CANCELLED');
+   ```
+   This prevents a student from holding multiple active bookings that overlap in time, while allowing subsequent bookings if a previous reservation was cancelled.
+
+3. **Active Slot Single-Booking Index (`uq_appointments_active_slot`)**:
+   While the GiST exclusion constraint on tutor slots prevents slots from overlapping with one another, it does not prevent multiple appointment records from referencing the exact same slot ID. To guarantee that an active slot cannot be booked by more than one student concurrently (NFR-03), a partial unique index is enforced:
+   ```sql
+   CREATE UNIQUE INDEX uq_appointments_active_slot
+       ON appointments (slot_id) WHERE status <> 'CANCELLED';
+   ```
+
+Combined with row-level locking (`SELECT ... FOR UPDATE`) in booking transactions, these constraints provide deterministic, engine-level protection against double bookings and scheduling conflicts.
 
 ---
 
-### 4.2.3. Query Optimization and Indexing Strategy
-- **idx_tutor_subjects_subject (`B-Tree`):** Optimizes CU-06 search queries filtering tutors by subject.
-- **idx_availability_slots_tutor_range (`GiST`):** Accelerates range intersection queries for calendar views.
-- **idx_appointments_student & idx_appointments_tutor (`B-Tree`):** Speeds up personal dashboard queries (`GET /api/appointments/me`) to achieve response latencies under 200 ms (NFR-01).
+### 4.2.4 Data Dictionary and Schema Specifications
+
+The schema uses specialized PostgreSQL types: `UUID` (anti-enumeration and IDOR mitigation), `TIMESTAMPTZ` (UTC standard), `TSTZRANGE` for time slots, and native `ENUM` types (`user_role`, `user_status`, `slot_status`, `appointment_status`, `session_type`) for every closed set of values, so an invalid state cannot be stored and the allowed values are declared once.
+
+#### Table: `users`
+Represents all system actors (Students, Tutors, and Administrators).
+
+| Column | Type | Nullable | Default | Description / Constraints |
+|---|---|---|---|---|
+| `id` | UUID | No | `gen_random_uuid()` | Primary Key |
+| `email` | VARCHAR(255) | No | - | Unique, normalized lowercase |
+| `password_hash` | VARCHAR(255) | No | - | Cryptographic hash (bcrypt, 10 salt rounds) |
+| `first_name` | VARCHAR(100) | No | - | User first name |
+| `last_name` | VARCHAR(100) | No | - | User last name |
+| `role` | ENUM `user_role` | No | `'STUDENT'` | `'STUDENT'`, `'TUTOR'`, `'ADMIN'` |
+| `status` | ENUM `user_status` | No | `'ACTIVE'` | `'ACTIVE'`, `'SUSPENDED'` (CU-13) |
+| `failed_login_count` | INT | No | `0` | Consecutive failed login attempts (CU-02) |
+| `locked_until` | TIMESTAMPTZ | Yes | `NULL` | Expiration timestamp for account lockout |
+| `late_cancellation_count` | INT | No | `0` | Policy infraction accumulator (BR-CONF-02) |
+| `created_at` | TIMESTAMPTZ | No | `CURRENT_TIMESTAMP` | Account creation timestamp |
+| `updated_at` | TIMESTAMPTZ | No | `CURRENT_TIMESTAMP` | Managed via trigger `trg_users_updated_at` |
+
+#### Table: `subjects`
+Catalog of available academic courses.
+
+| Column | Type | Nullable | Default | Description / Constraints |
+|---|---|---|---|---|
+| `id` | UUID | No | `gen_random_uuid()` | Primary Key |
+| `code` | VARCHAR(50) | No | - | Unique subject identifier (e.g., `MAT-101`) |
+| `name` | VARCHAR(255) | No | - | Full title of the academic subject |
+| `department` | VARCHAR(255) | Yes | `NULL` | Associated academic department |
+| `created_at` | TIMESTAMPTZ | No | `CURRENT_TIMESTAMP` | Record creation timestamp |
+| `updated_at` | TIMESTAMPTZ | No | `CURRENT_TIMESTAMP` | Managed via trigger `trg_subjects_updated_at` |
+
+#### Table: `tutor_profiles`
+Profile information for users registered as tutors (1:1 with `users`).
+
+| Column | Type | Nullable | Default | Description / Constraints |
+|---|---|---|---|---|
+| `user_id` | UUID | No | - | Primary Key, FK -> `users(id)` ON DELETE CASCADE |
+| `bio` | TEXT | Yes | `NULL` | Professional bio (at most 1000 characters, validated in `tutorService`) |
+| `meeting_url` | VARCHAR(500) | Yes | `NULL` | HTTPS video meeting link (Google Meet, Zoom, Teams) |
+| `created_at` | TIMESTAMPTZ | No | `CURRENT_TIMESTAMP` | Profile creation timestamp |
+| `updated_at` | TIMESTAMPTZ | No | `CURRENT_TIMESTAMP` | Managed via trigger `trg_tutor_profiles_updated_at` |
+
+#### Table: `tutor_subjects`
+Junction table mapping tutors to their qualified subjects (N:M relationship).
+
+| Column | Type | Nullable | Default | Description / Constraints |
+|---|---|---|---|---|
+| `tutor_id` | UUID | No | - | Composite PK, FK -> `users(id)` ON DELETE CASCADE |
+| `subject_id` | UUID | No | - | Composite PK, FK -> `subjects(id)` ON DELETE CASCADE |
+| `created_at` | TIMESTAMPTZ | No | `CURRENT_TIMESTAMP` | Qualification assignment timestamp |
+
+#### Table: `availability_slots`
+Available one-hour timeslots published by tutors.
+
+| Column | Type | Nullable | Default | Description / Constraints |
+|---|---|---|---|---|
+| `id` | UUID | No | `gen_random_uuid()` | Primary Key |
+| `tutor_id` | UUID | No | - | FK -> `users(id)` ON DELETE CASCADE |
+| `time_range` | TSTZRANGE | No | - | Half-open `[start, end)` timestamp interval |
+| `status` | ENUM `slot_status` | No | `'AVAILABLE'` | `'AVAILABLE'`, `'BOOKED'`, `'UNAVAILABLE'` |
+| `created_at` | TIMESTAMPTZ | No | `CURRENT_TIMESTAMP` | Creation timestamp |
+| `updated_at` | TIMESTAMPTZ | No | `CURRENT_TIMESTAMP` | Managed via trigger `trg_availability_slots_updated_at` |
+
+* **Key Constraints**:
+  * `chk_slot_duration_60m`: `CHECK (upper(time_range) - lower(time_range) = INTERVAL '60 minutes')`
+  * `no_tutor_slot_overlap`: `EXCLUDE USING gist (tutor_id WITH =, time_range WITH &&)`
+  * `uq_slot_tutor_range`: `UNIQUE (id, tutor_id, time_range)`
+
+#### Table: `appointments`
+Scheduled tutoring sessions booked by students.
+
+| Column | Type | Nullable | Default | Description / Constraints |
+|---|---|---|---|---|
+| `id` | UUID | No | `gen_random_uuid()` | Primary Key |
+| `slot_id` | UUID | No | - | FK -> `availability_slots(id)` |
+| `tutor_id` | UUID | No | - | FK -> `users(id)` (Denormalized) |
+| `student_id` | UUID | No | - | FK -> `users(id)` ON DELETE CASCADE |
+| `time_range` | TSTZRANGE | No | - | UTC interval (Denormalized) |
+| `session_type` | ENUM `session_type` | No | `'STANDARD'` | `'QUICK_CHECK'` (5 min), `'STANDARD'` (30 min), `'DEEP_DIVE'` (60 min); always one 60-minute block (BR-CONF-03) |
+| `status` | ENUM `appointment_status` | No | `'CONFIRMED'` | `'CONFIRMED'`, `'COMPLETED'`, `'CANCELLED'` |
+| `student_inquiry` | TEXT | Yes | `NULL` | Student consultation notes/questions |
+| `tutor_notes` | TEXT | Yes | `NULL` | Private notes recorded by tutor after session |
+| `student_feedback` | TEXT | Yes | `NULL` | Student rating and feedback |
+| `is_late_cancellation` | BOOLEAN | No | `FALSE` | Set when cancelled less than 4 hours before the start (BR-CONF-02) |
+| `cancelled_by` | UUID | Yes | `NULL` | FK -> `users(id)` tracking cancellation initiator |
+| `cancelled_at` | TIMESTAMPTZ | Yes | `NULL` | Cancellation timestamp |
+| `created_at` | TIMESTAMPTZ | No | `CURRENT_TIMESTAMP` | Booking timestamp |
+| `updated_at` | TIMESTAMPTZ | No | `CURRENT_TIMESTAMP` | Managed via trigger `trg_appointments_updated_at` |
+
+* **Key Constraints**:
+  * `FOREIGN KEY (slot_id, tutor_id, time_range) REFERENCES availability_slots(id, tutor_id, time_range) ON DELETE RESTRICT`
+  * `no_student_appointment_overlap`: `EXCLUDE USING gist (student_id WITH =, time_range WITH &&) WHERE (status <> 'CANCELLED')`
+  * `uq_appointments_active_slot`: `UNIQUE INDEX (slot_id) WHERE status <> 'CANCELLED'`
+
+#### Table: `audit_logs`
+Append-only log documenting security-relevant events and status transitions (CU-14).
+
+| Column | Type | Nullable | Default | Description / Constraints |
+|---|---|---|---|---|
+| `id` | UUID | No | `gen_random_uuid()` | Primary Key |
+| `actor_id` | UUID | Yes | `NULL` | FK -> `users(id)` ON DELETE SET NULL |
+| `action` | VARCHAR(100) | No | - | Action identifier (e.g., `USER_SUSPENDED`) |
+| `target_type` | VARCHAR(100) | No | - | Affected entity category (`USER`, `APPOINTMENT`) |
+| `target_id` | UUID | Yes | `NULL` | Identifier of the affected entity |
+| `details` | JSONB | Yes | `NULL` | Structured contextual metadata |
+| `created_at` | TIMESTAMPTZ | No | `CURRENT_TIMESTAMP` | Event timestamp |
+
+* **Key Constraints**:
+  * `trg_audit_logs_immutable`: Trigger executing `prevent_audit_logs_mutation()`, throwing an exception on any attempted `UPDATE` or `DELETE`.
+
+---
+
+### 4.2.5 Automated Database Migrations & Seed Architecture
+
+#### Migration Engine (`src/database/migrate.js`)
+Database schema migrations are managed through version-controlled, sequential SQL files located in `src/database/migrations/`:
+* **State Tracking**: The table `schema_migrations (id SERIAL PRIMARY KEY, filename VARCHAR(255) NOT NULL UNIQUE, applied_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP)` records every executed script.
+* **Transactional Atomicity**: Each migration file is read and executed inside an explicit `BEGIN ... COMMIT` block. If any statement fails, the transaction is rolled back immediately via `ROLLBACK`, leaving the schema in a clean, consistent state.
+* **Idempotency**: Running `npm run db:migrate` repeatedly is safe; migrations already present in `schema_migrations` are automatically skipped.
+* **Current migrations**: `001_initial_schema.sql` (types, tables, constraints and triggers), `002_add_indexes.sql` (secondary indexes, Section 4.2.6) and `003_add_session_type.sql` (the `session_type` ENUM and column). The third one shows the rule the team follows: a migration that is already in `main` is never edited, because databases that applied it would not run it again; every change is a new numbered file.
+
+#### Seed Strategy (`src/database/seeds.sql`)
+Test and development datasets are loaded via `npm run db:seed`:
+* **Cryptographic Hashes**: Seed accounts use genuine bcrypt password hashes (cost factor 10) matching the standard testing credential `Password123!`.
+* **Standardized Roles**: Creates an administrator (`admin@unimentor.edu`), certified tutors (`laura.garcia@unimentor.edu`, `carlos.martin@unimentor.edu`), and students.
+* **Realistic Scheduling Scenarios**: Slots are placed at round hours with at least two hours of notice. Appointments are populated covering all three valid lifecycle states: one active confirmed future session, one completed past session with notes and feedback, and one cancelled appointment tracking `cancelled_by` and `cancelled_at`.
+
+---
+
+### 4.2.6 Query Optimization and Indexing Strategy
+
+Many lookups are already served by indexes that PostgreSQL creates for the constraints: the primary keys, `UNIQUE (email)`, `UNIQUE (code)`, the GiST indexes behind the two `EXCLUDE` constraints and the partial unique index `uq_appointments_active_slot`. Migration `002_add_indexes.sql` adds only the indexes that the main read paths still need to stay under 200 ms (NFR-01):
+
+| Index | Columns | Used by |
+|---|---|---|
+| `idx_tutor_subjects_subject` | `tutor_subjects (subject_id)` | CU-06: tutors of a subject (the primary key starts with `tutor_id`, so it cannot serve this lookup) |
+| `idx_appointments_student` | `appointments (student_id)` | CU-11: the student's dashboard |
+| `idx_appointments_tutor` | `appointments (tutor_id)` | CU-11: the tutor's dashboard |
+| `idx_availability_slots_available` | `availability_slots (tutor_id, lower(time_range)) WHERE status = 'AVAILABLE'` | CU-06 and CU-07: the next free slot of a tutor. Being partial, it only stores free slots and stays small |
+
+No index was added for columns that are not filtered on, because every index slows down writes and the booking transaction (CU-08) is the most write-sensitive path of the system.
