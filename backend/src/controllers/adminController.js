@@ -2,22 +2,11 @@
 // and delegates the business rules to adminService.
 const adminService = require('../services/adminService');
 const AppError = require('../utils/AppError');
-const { isUuid } = require('../utils/validators');
+const { isUuid, parsePagination } = require('../utils/validators');
 
 const ROLES = ['STUDENT', 'TUTOR', 'ADMIN'];
 const STATUSES = ['ACTIVE', 'SUSPENDED'];
-
-function parsePagination({ limit = 20, offset = 0 }) {
-  const parsedLimit = Number(limit);
-  const parsedOffset = Number(offset);
-  if (!Number.isInteger(parsedLimit) || parsedLimit < 1 || parsedLimit > 50) {
-    throw new AppError(400, 'Limit must be an integer between 1 and 50');
-  }
-  if (!Number.isInteger(parsedOffset) || parsedOffset < 0) {
-    throw new AppError(400, 'Offset must be a non-negative integer');
-  }
-  return { limit: parsedLimit, offset: parsedOffset };
-}
+const DEFAULT_LIMIT = 20;
 
 function requireUserId(id) {
   if (!isUuid(id)) {
@@ -42,7 +31,7 @@ async function listUsers(req, res) {
     search: search ? search.trim() : undefined,
     role,
     status,
-    ...parsePagination(req.query),
+    ...parsePagination(req.query, DEFAULT_LIMIT),
   });
   res.status(200).json(users);
 }
@@ -72,7 +61,7 @@ async function listAuditLogs(req, res) {
   if (action !== undefined && (typeof action !== 'string' || !/^[A-Z_]{1,100}$/.test(action))) {
     throw new AppError(400, 'Invalid action filter');
   }
-  const logs = await adminService.listAuditLogs({ action, ...parsePagination(req.query) });
+  const logs = await adminService.listAuditLogs({ action, ...parsePagination(req.query, DEFAULT_LIMIT) });
   res.status(200).json(logs);
 }
 

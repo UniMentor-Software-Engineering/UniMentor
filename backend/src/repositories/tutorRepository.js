@@ -114,12 +114,13 @@ async function findOwnProfile(userId) {
 
 async function updateProfileAndSubjects(userId, { bio, meetingUrl, subjectIds }) {
   return await db.withTransaction(async (client) => {
-    // 1. Upsert tutor profile
+    // 1. Upsert tutor profile. A request without a bio keeps the current one;
+    // an empty text clears it (it is what the profile form sends).
     await client.query(`
       INSERT INTO tutor_profiles (user_id, bio, meeting_url)
       VALUES ($1, $2, $3)
       ON CONFLICT (user_id) DO UPDATE
-      SET bio = EXCLUDED.bio,
+      SET bio = COALESCE(EXCLUDED.bio, tutor_profiles.bio),
           meeting_url = EXCLUDED.meeting_url,
           updated_at = CURRENT_TIMESTAMP
     `, [userId, bio, meetingUrl]);

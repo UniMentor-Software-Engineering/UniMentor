@@ -1,31 +1,29 @@
 const tutorService = require('../services/tutorService');
 const AppError = require('../utils/AppError');
-const { isUuid } = require('../utils/validators');
+const { isUuid, parsePagination } = require('../utils/validators');
+
+const DEFAULT_LIMIT = 10;
+const MAX_SEARCH_LENGTH = 100;
 
 async function search(req, res, next) {
   try {
-    const { subjectId, search: searchTerm, limit = 10, offset = 0 } = req.query;
-
-    const parsedLimit = parseInt(limit, 10);
-    const parsedOffset = parseInt(offset, 10);
-
-    if (isNaN(parsedLimit) || parsedLimit < 1 || parsedLimit > 50) {
-      throw new AppError(400, 'Limit must be an integer between 1 and 50');
-    }
-
-    if (isNaN(parsedOffset) || parsedOffset < 0) {
-      throw new AppError(400, 'Offset must be a non-negative integer');
-    }
+    const { subjectId, search: searchTerm } = req.query;
+    const { limit, offset } = parsePagination(req.query, DEFAULT_LIMIT);
 
     if (subjectId && !isUuid(subjectId)) {
       throw new AppError(400, 'Invalid subjectId format');
     }
 
+    // A repeated ?search=a&search=b arrives as an array.
+    if (searchTerm !== undefined && (typeof searchTerm !== 'string' || searchTerm.length > MAX_SEARCH_LENGTH)) {
+      throw new AppError(400, `Search must be a text of at most ${MAX_SEARCH_LENGTH} characters`);
+    }
+
     const tutors = await tutorService.searchTutors({
       subjectId,
       search: searchTerm,
-      limit: parsedLimit,
-      offset: parsedOffset
+      limit,
+      offset
     });
 
     res.status(200).json(tutors);

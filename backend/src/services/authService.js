@@ -24,7 +24,8 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Compared against when the email does not exist, so the response takes as long
 // as a wrong password and does not reveal which emails are registered.
-const DUMMY_HASH = '$2a$10$dSh1q6rNiz1kO2GGWV6InufEaFEGdoA6g4L3d792j8TKpHmY6iX1W';
+// It must use BCRYPT_COST: bcrypt's time depends on the cost stored in the hash.
+const DUMMY_HASH = '$2b$12$vW1BboJ36vxKxtWy3FLYIucyc7oONJL0..4/BciZxbcrFU43Iz4ya';
 
 const INVALID_CREDENTIALS = 'Invalid email or password.';
 
@@ -56,7 +57,9 @@ async function register({ firstName, lastName, email, password, role } = {}) {
   const cleanLastName = requireName(lastName, 'Last name', 'INVALID_LAST_NAME');
 
   const cleanEmail = normalizeEmail(email);
-  if (!EMAIL_REGEX.test(cleanEmail) || cleanEmail.length > MAX_EMAIL_LENGTH) {
+  // The length goes first: this regex takes quadratic time, so running it on a text of
+  // up to 100 kB (the body limit) would block the whole API for several seconds.
+  if (cleanEmail.length > MAX_EMAIL_LENGTH || !EMAIL_REGEX.test(cleanEmail)) {
     throw new AppError(400, 'Enter a valid email address.', 'INVALID_EMAIL');
   }
   // Precondition 2: an authorized university domain.
@@ -180,6 +183,8 @@ module.exports = {
   login,
   getCurrentUser,
   passwordProblems,
+  BCRYPT_COST,
+  DUMMY_HASH,
   SESSION_MAX_AGE_MS,
   MAX_FAILED_ATTEMPTS,
   LOCK_MINUTES,

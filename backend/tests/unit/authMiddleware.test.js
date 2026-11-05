@@ -27,13 +27,13 @@ describe('verifyJWT', () => {
 
   it('rejects a token signed with another secret with 401', async () => {
     const token = jwt.sign({ sub: USER_ID, role: 'ADMIN' }, 'not-the-secret');
-    await expect(verifyJWT(reqWithToken(token), {}, jest.fn()))
+    await expect(verifyJWT(reqWithToken(token), { clearCookie: jest.fn() }, jest.fn()))
       .rejects.toMatchObject({ status: 401, message: 'Invalid session. Please sign in again.' });
   });
 
   it('rejects an expired token with 401', async () => {
     const token = sign({ sub: USER_ID, role: 'STUDENT' }, { expiresIn: -10 });
-    await expect(verifyJWT(reqWithToken(token), {}, jest.fn()))
+    await expect(verifyJWT(reqWithToken(token), { clearCookie: jest.fn() }, jest.fn()))
       .rejects.toMatchObject({ status: 401, message: 'Your session has expired. Please sign in again.' });
   });
 
