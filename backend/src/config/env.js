@@ -26,11 +26,20 @@ const config = {
     .map((origin) => origin.trim())
     .filter(Boolean),
   // CU-01, precondition 2: only institutional addresses can register.
-  // unimentor.edu is the domain of the seed accounts used in development.
-  allowedEmailDomains: (process.env.ALLOWED_EMAIL_DOMAINS || 'myuax.com,unimentor.edu')
+  // unimentor.edu is the domain of the seed accounts, so it is only a development default.
+  allowedEmailDomains: (process.env.ALLOWED_EMAIL_DOMAINS || (isProduction ? 'myuax.com' : 'myuax.com,unimentor.edu'))
     .split(',')
     .map((domain) => domain.trim().toLowerCase())
     .filter(Boolean),
+  // npm run db:seed empties every table, so outside a local database it must be requested.
+  allowSeedReset: process.env.ALLOW_SEED_RESET === 'true',
+  // npm run db:create-admin (see README, Deployment).
+  newAdmin: {
+    email: process.env.ADMIN_EMAIL,
+    password: process.env.ADMIN_PASSWORD,
+    firstName: process.env.ADMIN_FIRST_NAME || 'University',
+    lastName: process.env.ADMIN_LAST_NAME || 'Administrator',
+  },
 };
 
 module.exports = config;
