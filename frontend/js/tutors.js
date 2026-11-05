@@ -1,8 +1,8 @@
-// CU-06: search and filter tutors. Public page (no precondition), so it never calls
-// /auth/me: api.js would redirect anonymous visitors to the login page.
+// CU-06: search and filter tutors. Public page (no precondition): anonymous visitors stay
+// here, and it is also the landing page of signed-in students, who need to be able to sign out.
 // Every text from the API is written with textContent (NFR-02, XSS).
 import { api } from './api.js';
-import { showToast } from './session.js';
+import { logout, optionalUser, showToast } from './session.js';
 
 const PAGE_SIZE = 10;
 const NO_RESULTS = 'No mentors available for the selected subject at this time.'; // A1
@@ -109,5 +109,18 @@ loadMore.addEventListener('click', () => {
   loadTutors({ append: true });
 });
 
+async function showSession() {
+  const user = await optionalUser();
+  if (!user) return;
+  const name = document.getElementById('user-name');
+  name.textContent = `${user.first_name} ${user.last_name}`;
+  name.hidden = false;
+  document.getElementById('sign-in-link').hidden = true;
+  const signOut = document.getElementById('logout-button');
+  signOut.hidden = false;
+  signOut.addEventListener('click', logout);
+}
+
+showSession();
 loadSubjects();
 loadTutors();
