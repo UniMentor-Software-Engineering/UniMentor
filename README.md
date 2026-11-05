@@ -27,7 +27,7 @@ npm run db:seed           # optional: empties the tables and loads the test data
 npm run dev               # http://localhost:3000/api/health
 ```
 
-Test accounts created by `npm run db:seed` (the password is `Password123!` for all of them):
+Test accounts created by `npm run db:seed` (the password is `Password123!` for all of them). They are for development only: the seed refuses to run in production or against a remote database unless you set `ALLOW_SEED_RESET=true`.
 
 | Email | Role |
 |---|---|
@@ -36,7 +36,7 @@ Test accounts created by `npm run db:seed` (the password is `Password123!` for a
 | `carlos.martin@unimentor.edu` | TUTOR |
 | `diego.student@unimentor.edu` | STUDENT |
 
-Schema changes go in a new numbered file in `backend/src/database/migrations/` (e.g. `004_...sql`). Never edit a migration that is already in `main`: databases that applied it will not run it again.
+Schema changes go in a new numbered file in `backend/src/database/migrations/` (e.g. `006_...sql`). Never edit a migration that is already in `main`: databases that applied it will not run it again.
 
 Frontend: serve the `frontend/` folder with any static server on port 5500 (e.g. the VS Code "Live Server" extension, or `npx serve frontend -l 5500`) and open `http://localhost:5500`. The status card shows whether the API and the database are reachable.
 
@@ -73,7 +73,7 @@ Requirements: [Node.js 22+](https://nodejs.org) and [Docker Desktop](https://www
 
    Open `http://localhost:5500`. It must be port 5500 (or 127.0.0.1:5500), which is the origin allowed by CORS in `.env` (`FRONTEND_ORIGIN`).
 
-   Sign in at `login.html` with a seed account (password `Password123!`): `admin@unimentor.edu` opens the admin panel (`admin.html`); `laura.garcia@unimentor.edu` and `carlos.martin@unimentor.edu` are tutors (they land on `profile.html`, CU-03) and `diego.student@unimentor.edu` is a student (`tutors.html`, CU-06, which is also public). New accounts can register at `register.html` with an email from `ALLOWED_EMAIL_DOMAINS` (by default `myuax.com` and `unimentor.edu`).
+   Sign in at `login.html` with a seed account (password `Password123!`): `admin@unimentor.edu` opens the admin panel (`admin.html`); `laura.garcia@unimentor.edu` and `carlos.martin@unimentor.edu` are tutors (they land on `profile.html`, CU-03) and `diego.student@unimentor.edu` is a student (`tutors.html`, CU-06, which is also public). New accounts can register at `register.html` with an email from `ALLOWED_EMAIL_DOMAINS` (in development, by default, `myuax.com` and `unimentor.edu`).
 
 To stop everything: `Ctrl+C` in both terminals and `docker stop unimentor-pg`.
 
@@ -85,14 +85,28 @@ To stop everything: `Ctrl+C` in both terminals and `docker stop unimentor-pg`.
 | `npm start` | Starts the API with node (production) |
 | `npm run db:migrate` | Applies the pending SQL migrations in `src/database/migrations/` |
 | `npm run db:seed` | Empties the tables and loads the test data (`src/database/seeds.sql`) |
+| `npm run db:create-admin` | Creates an administrator from `ADMIN_EMAIL` and `ADMIN_PASSWORD` |
 | `npm run lint` | Runs ESLint |
-| `npm test` | Runs the Jest test suite |
+| `npm test` | Runs the Jest test suite, with the database mocked |
 | `npm run test:coverage` | Tests + coverage report (CI requires >= 70 % lines, NFR-04) |
+| `npm run test:db` | Tests against a real PostgreSQL. Set `TEST_DATABASE_URL` to a separate database: **these tests erase it** |
+| `npm run test:load` | Load test for NFR-01, with the API running (Artillery, 50 users, fails if p95 > 200 ms) |
 
 ## Deployment
 
-- **Backend + database (Render):** New > Blueprint > this repository (`render.yaml`). Then set `FRONTEND_ORIGIN` to the Vercel URL (and, if needed, `ALLOWED_EMAIL_DOMAINS`). Create the tables by running `npm run db:migrate` from your machine with `DATABASE_URL` set to the database's *External Database URL* and `DB_SSL=true` (repeat it after every merge that adds a migration).
+- **Backend + database (Render):** New > Blueprint > this repository (`render.yaml`). Then set `FRONTEND_ORIGIN` to the Vercel URL. The migrations run automatically every time the API starts. Only `myuax.com` addresses can register; change `ALLOWED_EMAIL_DOMAINS` if the university uses another domain.
+- **First administrator:** run this once from your machine (PowerShell), with the database's *External Database URL*. Choose your own password of 12 or more characters, with letters and digits, and do not write it down in the repository:
+
+  ```powershell
+  cd backend
+  $env:DATABASE_URL = "<External Database URL>"; $env:DB_SSL = "true"
+  $env:ADMIN_EMAIL = "<email>"; $env:ADMIN_PASSWORD = "<password>"
+  npm run db:create-admin
+  ```
+
+  Close that terminal afterwards so the variables disappear. Do not use `npm run db:seed` on a database with real users: it erases everything and creates accounts whose password is public.
 - **Frontend (Vercel):** import the repository and set **Root Directory** to `frontend` (framework preset: Other, no build command). Then set the Render URL in `frontend/js/config.js`.
+- **Check:** open the Vercel URL. The page must show "API: online" and "Database: online" (it shows an error if the tables are missing). Try signing in with Safari too: it may block the cross-site session cookie of ADR 4.
 
 ## Documentation PDFs
 
