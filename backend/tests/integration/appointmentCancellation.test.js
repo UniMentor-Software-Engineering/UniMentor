@@ -100,4 +100,62 @@ describe('Appointment Cancellation Integration Tests', () => {
 
     expect(rows[0].late_cancellation_count).toBe(originalLateCount + 1);
   });
+
+    it('should reject cancellation by a non-participant', async () => {
+        const appointment = await createTestAppointment(72);
+
+        // Use a valid user ID that is not a participant
+        const unauthorizedUserId = 'a0000000-0000-0000-0000-000000000001';
+
+        await expect(
+        appointmentRepository.cancelAppointment(
+        appointment.id,
+        unauthorizedUserId
+        )
+    ).rejects.toMatchObject({
+    statusCode: 403,
+    code: 'FORBIDDEN'
+  });
+
+  // Verify that the appointment remains confirmed
+  const { rows } = await db.query(
+    'SELECT status FROM appointments WHERE id = $1',
+    [appointment.id]
+  );
+
+  expect(rows[0].status).toBe('CONFIRMED');
+});
+
+
+it('should reject cancelling an already cancelled appointment', async () => {
+  const appointment = await createTestAppointment(96);
+
+  // Cancel the appointment for the first time
+  const firstCancellation = await appointmentRepository.cancelAppointment(
+    appointment.id,
+    STUDENT_ID
+  );
+
+  expect(firstCancellation.status).toBe('CANCELLED');
+
+  // Attempt to cancel the same appointment again
+  await expect(
+    appointmentRepository.cancelAppointment(
+      appointment.id,
+      STUDENT_ID
+    )
+  ).rejects.toMatchObject({
+    statusCode: 409,
+    code: 'INVALID_STATUS'
+  });
+
+  // Verify that the appointment remains cancelled
+  const { rows } = await db.query(
+    'SELECT status FROM appointments WHERE id = $1',
+    [appointment.id]
+  );
+
+  expect(rows[0].status).toBe('CANCELLED');
+});
+
 });
