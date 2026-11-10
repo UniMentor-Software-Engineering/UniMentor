@@ -13,4 +13,12 @@ router.post(
   appointmentController.createBooking
 );
 
+// CU-09: Allow students and tutors to cancel their appointments
+router.patch(
+  '/:id/cancel',
+  verifyJWT,
+  requireRole('STUDENT', 'TUTOR'),
+  appointmentController.cancelAppointment
+);
+
 module.exports = router;

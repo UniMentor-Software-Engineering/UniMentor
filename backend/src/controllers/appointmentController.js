@@ -33,6 +33,38 @@ async function createBooking(req, res, next) {
   }
 }
 
+
+ // CU-09: Handle an appointment cancellation request
+async function cancelAppointment(req, res, next) {
+  try {
+    // Verify that the user is authenticated
+    if (!req.user || !req.user.id) {
+      throw new AppError(401, 'Unauthorized');
+    }
+
+    // Get the authenticated user and appointment IDs
+    const userId = req.user.id;
+    const appointmentId = req.params.id;
+
+    // Cancel the appointment through the service
+    const appointment = await bookingService.cancelAppointment(
+      userId,
+      appointmentId
+    );
+
+    // Return the cancelled appointment
+    res.status(200).json({
+      message: 'Appointment cancelled successfully',
+      appointment
+    });
+
+  } catch (error) {
+    next(error);
+  }
+}
+
+
 module.exports = {
-  createBooking
+  createBooking,
+  cancelAppointment
 };

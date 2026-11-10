@@ -39,6 +39,30 @@ async function createBooking(studentId, slotId, studentInquiry = null) {
   );
 }
 
+
+ // CU-09: Cancel a confirmed tutoring appointment
+async function cancelAppointment(userId, appointmentId) {
+
+  // Validate the appointment ID
+  if (!isUuid(appointmentId)) {
+    throw new AppError(400, 'Invalid appointment ID', 'INVALID_ID');
+  }
+
+  // Validate the authenticated user ID
+  if (!isUuid(userId)) {
+    throw new AppError(400, 'Invalid user ID', 'INVALID_ID');
+  }
+
+  // Delegate the cancellation to the repository
+  // The repository checks authorization, status and cancellation timing
+  return await appointmentRepository.cancelAppointment(
+    appointmentId,
+    userId
+  );
+}
+
+
 module.exports = {
-  createBooking
+  createBooking,
+  cancelAppointment
 };
