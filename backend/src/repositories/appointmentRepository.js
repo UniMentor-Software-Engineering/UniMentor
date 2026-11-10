@@ -1,5 +1,6 @@
 
 const db = require('../config/db');
+const AppError = require('../utils/AppError');
 
 // Find an availability slot by its ID
 async function findSlotById(slotId) {
@@ -33,8 +34,12 @@ async function createBooking(slotId, studentId, studentInquiry = null) {
     const slot = rows[0];
 
     // Check whether the slot exists and is available
-    if (!slot || slot.status !== 'AVAILABLE') {
-      throw new Error('Slot is not available');
+    if (!slot) {
+      throw new AppError(404, 'Slot not found', 'SLOT_NOT_FOUND');
+    }
+
+    if (slot.status !== 'AVAILABLE') {
+      throw new AppError(409, 'Slot is not available', 'SLOT_UNAVAILABLE');
     }
 
     // Create the appointment
