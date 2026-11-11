@@ -543,3 +543,87 @@ The CU-02 rule (*5 consecutive failed attempts lock the account for 15 minutes*)
 #### Related decisions
 
 ADR 4 (JWT in an `HttpOnly` cookie, cross-site CORS with credentials and CSRF protection), NFR-02 (bcrypt with cost 12, signed JWT, cookie flags `HttpOnly; Secure; SameSite=None` in production, checked by the integration tests), CU-13 (account status checked on every request) and CU-14 (the critical actions are written to the append-only `audit_logs` table inside the same transaction as the action, so a suspension can never exist without its audit entry).
+
+### 4.3.2 Repository: Transactional Reservation Management
+
+**Type:** architectural (data access). **Use cases:** CU-04, CU-05, CU-07, CU-08 and CU-09.
+
+#### Problem
+
+UniMentor requires several operations involving PostgreSQL, including publishing tutor availability, retrieving available slots, creating bookings and cancelling appointments.
+
+Executing SQL queries directly inside controllers or services would mix database access with business logic, increase code duplication and make automated testing more difficult.
+
+Additionally, concurrent booking requests could attempt to reserve the same availability slot, creating inconsistent appointment records if database operations were not coordinated.
+
+#### Solution
+
+The Repository pattern separates database operations from the application's business logic.
+
+UniMentor follows a layered architecture:
+
+`Controller → Service → Repository → PostgreSQL`
+
+Each component has a specific responsibility:
+
+- **Controller:** receives HTTP requests and returns responses.
+- **Service:** validates business rules and coordinates operations.
+- **Repository:** executes SQL queries, manages transactions and accesses database records.
+- **PostgreSQL:** stores information and enforces database constraints.
+
+The main implementation is located in `backend/src/repositories/appointmentRepository.js`, while `backend/src/services/bookingService.js` coordinates reservation operations.
+
+This organization allows the service layer to work with repository functions without directly managing SQL statements.
+
+#### Implementation: Booking Transaction
+
+When a student attempts to reserve an available session, the application follows this sequence:
+
+1. The controller receives the booking request.
+2. The service validates the request and applicable business rules.
+3. The repository begins a PostgreSQL transaction.
+4. The selected availability slot is locked using `SELECT ... FOR UPDATE`.
+5. The system verifies that the slot remains available.
+6. The appointment is inserted into the database.
+7. The slot status is updated to `BOOKED`.
+8. The transaction is committed.
+
+If an operation fails, the transaction is rolled back to avoid partially completed reservations.
+
+#### Concurrency Control
+
+Preventing double bookings is a critical requirement of the reservation system (NFR-03).
+
+The implementation uses PostgreSQL row-level locking through `SELECT ... FOR UPDATE`.
+
+When two students attempt to reserve the same slot simultaneously, the first transaction locks the corresponding record. The second transaction must wait until the lock is released.
+
+After the first transaction completes, the second request checks the updated slot state and cannot create another confirmed booking for the same availability.
+
+Database constraints provide an additional level of protection against conflicting appointment records.
+
+The same transaction-based approach is applied when blocking tutor availability, preventing incompatible operations from modifying the same slot concurrently.
+
+#### Consequences
+
+**Benefits**
+
+- **Separation of concerns.** SQL operations remain isolated from HTTP handling and business rules.
+- **Maintainability.** Database queries can be modified without rewriting controllers.
+- **Testability.** Services can be tested with mocked repository functions.
+- **Data consistency.** Transactions prevent partially completed reservation operations.
+- **Concurrency safety.** Row-level locking protects availability records against conflicting requests.
+
+**Drawbacks**
+
+- **Additional abstraction.** Database access requires an additional application layer.
+- **Increased complexity.** Transactions and locking introduce more complex repository implementations.
+- **Database dependency.** The implementation relies on PostgreSQL transaction and locking capabilities.
+
+These trade-offs are justified because UniMentor requires reliable reservation management with concurrent users.
+
+#### Related Requirements
+
+The Repository pattern supports CU-04, CU-05, CU-07, CU-08 and CU-09, as well as NFR-03 concerning concurrent booking consistency and BR-CONF-01 concerning minimum booking notice.
+
+Its implementation follows the project's layered architecture and database consistency requirements.
