@@ -1,7 +1,6 @@
 
 const db = require('../../src/config/db');
 const bookingService = require('../../src/services/bookingService');
-const { randomUUID } = require('crypto');
 
 const TUTOR_ID = 'b0000000-0000-0000-0000-000000000001';
 const STUDENT_ID = 'c0000000-0000-0000-0000-000000000001';

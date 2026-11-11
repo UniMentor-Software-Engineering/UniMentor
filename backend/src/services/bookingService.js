@@ -2,6 +2,7 @@
 const appointmentRepository = require('../repositories/appointmentRepository');
 const AppError = require('../utils/AppError');
 const { isUuid } = require('../utils/validators');
+const tutorRepository = require('../repositories/tutorRepository');
 
 // Create a new appointment for a student
 async function createBooking(studentId, slotId, studentInquiry = null) {
