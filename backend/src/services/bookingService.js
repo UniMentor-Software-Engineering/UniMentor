@@ -62,7 +62,101 @@ async function cancelAppointment(userId, appointmentId) {
 }
 
 
+ // CU-04: Split a time interval into 60-minute slots
+function splitIntoHourlySlots(startTime, endTime) {
+  const start = new Date(startTime);
+  const end = new Date(endTime);
+
+  // Validate the dates
+  if (
+    Number.isNaN(start.getTime()) ||
+    Number.isNaN(end.getTime()) ||
+    start >= end
+  ) {
+    throw new AppError(400, 'Invalid time interval', 'INVALID_INTERVAL');
+  }
+
+  // Ensure the interval contains complete 60-minute blocks
+  const duration = end.getTime() - start.getTime();
+  const oneHour = 60 * 60 * 1000;
+
+  if (duration % oneHour !== 0) {
+    throw new AppError(
+      400,
+      'Time interval must contain complete 60-minute blocks',
+      'INVALID_DURATION'
+    );
+  }
+
+  const slots = [];
+
+  // Generate consecutive 60-minute slots
+  for (let current = start.getTime(); current < end.getTime(); current += oneHour) {
+    slots.push({
+      startTime: new Date(current).toISOString(),
+      endTime: new Date(current + oneHour).toISOString()
+    });
+  }
+
+  return slots;
+}
+
+
+ // CU-04: Publish availability slots for an authenticated tutor
+async function publishAvailability(tutorId, startTime, endTime) {
+
+  // Validate the tutor ID
+  if (!isUuid(tutorId)) {
+    throw new AppError(400, 'Invalid tutor ID', 'INVALID_ID');
+  }
+
+  // Check whether the tutor has an active profile and linked subjects
+  const canPublish = await appointmentRepository.canTutorPublishSlots(tutorId);
+
+  if (!canPublish) {
+    throw new AppError(
+      403,
+      'Tutor must have an active profile and at least one subject',
+      'TUTOR_NOT_ELIGIBLE'
+    );
+  }
+
+  // Divide the selected interval into 60-minute slots
+  const slots = splitIntoHourlySlots(startTime, endTime);
+
+  // Publish valid slots and skip overlapping or past slots
+  return await appointmentRepository.publishAvailabilitySlots(
+    tutorId,
+    slots
+  );
+}
+
+
+ // CU-05: Block an availability slot owned by a tutor
+async function blockAvailabilitySlot(tutorId, slotId) {
+
+  // Validate the tutor ID
+  if (!isUuid(tutorId)) {
+    throw new AppError(400, 'Invalid tutor ID', 'INVALID_ID');
+  }
+
+  // Validate the slot ID
+  if (!isUuid(slotId)) {
+    throw new AppError(400, 'Invalid slot ID', 'INVALID_ID');
+  }
+
+  // Block the slot through the repository
+  return await appointmentRepository.blockAvailabilitySlot(
+    slotId,
+    tutorId
+  );
+}
+
+
 module.exports = {
   createBooking,
-  cancelAppointment
+  cancelAppointment,
+  splitIntoHourlySlots,
+  publishAvailability,
+  blockAvailabilitySlot
 };

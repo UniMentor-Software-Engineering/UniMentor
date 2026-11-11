@@ -63,8 +63,73 @@ async function cancelAppointment(req, res, next) {
   }
 }
 
+ // CU-04: Handle availability slot publication
+async function publishAvailability(req, res, next) {
+  try {
+    // Verify that the user is authenticated
+    if (!req.user || !req.user.id) {
+      throw new AppError(401, 'Unauthorized');
+    }
+
+    // Get the authenticated tutor's ID
+    const tutorId = req.user.id;
+
+    // Get the selected time interval
+    const { startTime, endTime } = req.body;
+
+    // Publish the availability slots through the service
+    const result = await bookingService.publishAvailability(
+      tutorId,
+      startTime,
+      endTime
+    );
+
+    // Return published and skipped slots
+    res.status(201).json({
+      message: 'Availability slots processed successfully',
+      published: result.published,
+      skipped: result.skipped
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+
+ // CU-05: Handle a tutor's request to block an availability slot
+async function blockAvailabilitySlot(req, res, next) {
+  try {
+    // Verify that the user is authenticated
+    if (!req.user || !req.user.id) {
+      throw new AppError(401, 'Unauthorized');
+    }
+
+    // Get the authenticated tutor's ID
+    const tutorId = req.user.id;
+
+    // Get the slot ID from the URL
+    const slotId = req.params.id;
+
+    // Block the slot through the service
+    const slot = await bookingService.blockAvailabilitySlot(
+      tutorId,
+      slotId
+    );
+
+    // Return the updated slot
+    res.status(200).json({
+      message: 'Availability slot blocked successfully',
+      slot
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 
 module.exports = {
   createBooking,
-  cancelAppointment
+  cancelAppointment,
+  publishAvailability,
+  blockAvailabilitySlot
 };

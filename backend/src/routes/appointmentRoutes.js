@@ -21,4 +21,22 @@ router.patch(
   appointmentController.cancelAppointment
 );
 
+
+ // CU-04: Allow authenticated tutors to publish availability slots
+router.post(
+  '/availability',
+  verifyJWT,
+  requireRole('TUTOR'),
+  appointmentController.publishAvailability
+);
+
+
+ // CU-05: Allow authenticated tutors to block their available slots
+router.patch(
+  '/availability/:id/block',
+  verifyJWT,
+  requireRole('TUTOR'),
+  appointmentController.blockAvailabilitySlot
+);
+
 module.exports = router;

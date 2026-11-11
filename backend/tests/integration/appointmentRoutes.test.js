@@ -165,3 +165,159 @@ describe('Appointment Cancellation Authorization Tests', () => {
   });
 });
 
+
+describe('Availability Publication Tests (CU-04)', () => {
+  const startTime = '2030-01-07T15:00:00.000Z';
+  const endTime = '2030-01-07T18:00:00.000Z';
+
+  const availabilityData = {
+    startTime,
+    endTime
+  };
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should return 401 when the tutor is not authenticated', async () => {
+    const res = await request(app)
+      .post('/api/appointments/availability')
+      .set('X-Requested-With', 'XMLHttpRequest')
+      .send(availabilityData);
+
+    expect(res.status).toBe(401);
+    expect(bookingService.publishAvailability).not.toHaveBeenCalled();
+  });
+
+  it('should return 403 when a student tries to publish slots', async () => {
+    const res = await request(app)
+      .post('/api/appointments/availability')
+      .set('X-Requested-With', 'XMLHttpRequest')
+      .set('Cookie', cookieFor('STUDENT'))
+      .send(availabilityData);
+
+    expect(res.status).toBe(403);
+    expect(bookingService.publishAvailability).not.toHaveBeenCalled();
+  });
+
+  it('should return 201 when a tutor publishes slots successfully', async () => {
+    const result = {
+      published: [
+        { id: 'slot-1', status: 'AVAILABLE' },
+        { id: 'slot-2', status: 'AVAILABLE' },
+        { id: 'slot-3', status: 'AVAILABLE' }
+      ],
+      skipped: []
+    };
+
+    bookingService.publishAvailability.mockResolvedValue(result);
+
+    const res = await request(app)
+      .post('/api/appointments/availability')
+      .set('X-Requested-With', 'XMLHttpRequest')
+      .set('Cookie', cookieFor('TUTOR'))
+      .send(availabilityData);
+
+    expect(res.status).toBe(201);
+    expect(res.body.published).toHaveLength(3);
+    expect(res.body.skipped).toHaveLength(0);
+
+    expect(bookingService.publishAvailability).toHaveBeenCalledWith(
+      STUDENT_ID,
+      startTime,
+      endTime
+    );
+  });
+
+  it('should report overlapping slots without rejecting valid ones', async () => {
+    bookingService.publishAvailability.mockResolvedValue({
+      published: [{ id: 'slot-1', status: 'AVAILABLE' }],
+      skipped: [{
+        startTime,
+        endTime,
+        reason: 'OVERLAPPING_SLOT'
+      }]
+    });
+
+    const res = await request(app)
+      .post('/api/appointments/availability')
+      .set('X-Requested-With', 'XMLHttpRequest')
+      .set('Cookie', cookieFor('TUTOR'))
+      .send(availabilityData);
+
+    expect(res.status).toBe(201);
+    expect(res.body.published).toHaveLength(1);
+    expect(res.body.skipped).toHaveLength(1);
+    expect(res.body.skipped[0].reason).toBe('OVERLAPPING_SLOT');
+  });
+});
+
+
+describe('Availability Slot Blocking Tests (CU-05)', () => {
+  const SLOT_ID = 'e0000000-0000-0000-0000-000000000003';
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should return 401 when the tutor is unauthenticated', async () => {
+    const res = await request(app)
+      .patch(`/api/appointments/availability/${SLOT_ID}/block`)
+      .set('X-Requested-With', 'XMLHttpRequest');
+
+    expect(res.status).toBe(401);
+    expect(bookingService.blockAvailabilitySlot).not.toHaveBeenCalled();
+  });
+
+  it('should return 403 when a student tries to block a slot', async () => {
+    const res = await request(app)
+      .patch(`/api/appointments/availability/${SLOT_ID}/block`)
+      .set('X-Requested-With', 'XMLHttpRequest')
+      .set('Cookie', cookieFor('STUDENT'));
+
+    expect(res.status).toBe(403);
+    expect(bookingService.blockAvailabilitySlot).not.toHaveBeenCalled();
+  });
+
+  it('should return 200 when a tutor blocks an available slot', async () => {
+    const blockedSlot = {
+      id: SLOT_ID,
+      status: 'UNAVAILABLE'
+    };
+
+    bookingService.blockAvailabilitySlot.mockResolvedValue(blockedSlot);
+
+    const res = await request(app)
+      .patch(`/api/appointments/availability/${SLOT_ID}/block`)
+      .set('X-Requested-With', 'XMLHttpRequest')
+      .set('Cookie', cookieFor('TUTOR'));
+
+    expect(res.status).toBe(200);
+    expect(res.body.slot).toEqual(blockedSlot);
+    expect(bookingService.blockAvailabilitySlot).toHaveBeenCalledWith(
+      STUDENT_ID,
+      SLOT_ID
+    );
+  });
+
+  it('should return 409 when the slot has already been booked', async () => {
+    const AppError = require('../../src/utils/AppError');
+
+    bookingService.blockAvailabilitySlot.mockRejectedValue(
+      new AppError(
+        409,
+        'This slot has just been booked. Please cancel it from your appointments dashboard.',
+        'SLOT_ALREADY_BOOKED'
+      )
+    );
+
+    const res = await request(app)
+      .patch(`/api/appointments/availability/${SLOT_ID}/block`)
+      .set('X-Requested-With', 'XMLHttpRequest')
+      .set('Cookie', cookieFor('TUTOR'));
+
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('SLOT_ALREADY_BOOKED');
+  });
+});
+

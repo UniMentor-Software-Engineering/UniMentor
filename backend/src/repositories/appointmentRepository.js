@@ -173,9 +173,146 @@ async function cancelAppointment(appointmentId, userId) {
 }
 
 
+ // CU-04: Check whether a tutor can publish availability slots
+async function canTutorPublishSlots(tutorId) {
+  const { rows } = await db.query(`
+    SELECT EXISTS (
+      SELECT 1
+      FROM users u
+      JOIN tutor_profiles tp ON tp.user_id = u.id
+      WHERE u.id = $1
+        AND u.role = 'TUTOR'
+        AND u.status = 'ACTIVE'
+        AND EXISTS (
+          SELECT 1
+          FROM tutor_subjects ts
+          WHERE ts.tutor_id = u.id
+        )
+    ) AS can_publish
+  `, [tutorId]);
+
+  return rows[0].can_publish;
+}
+
+
+ // CU-04: Publish valid availability slots for a tutor
+async function publishAvailabilitySlots(tutorId, slots) {
+  const published = [];
+  const skipped = [];
+
+  for (const slot of slots) {
+    // Reject slots that start in the past
+    if (new Date(slot.startTime).getTime() <= Date.now()) {
+      skipped.push({
+        ...slot,
+        reason: 'PAST_SLOT'
+      });
+      continue;
+    }
+
+    try {
+      // Insert the slot if it does not overlap existing availability
+      const { rows } = await db.query(`
+        INSERT INTO availability_slots (
+          tutor_id,
+          time_range,
+          status
+        )
+        VALUES (
+          $1,
+          tstzrange($2::timestamptz, $3::timestamptz, '[)'),
+          'AVAILABLE'
+        )
+        RETURNING id, tutor_id, time_range, status
+      `, [
+        tutorId,
+        slot.startTime,
+        slot.endTime
+      ]);
+
+      published.push(rows[0]);
+
+    } catch (error) {
+      // PostgreSQL exclusion violation: overlapping availability
+      if (error.code === '23P01') {
+        skipped.push({
+          ...slot,
+          reason: 'OVERLAPPING_SLOT'
+        });
+      } else {
+        throw error;
+      }
+    }
+  }
+
+  return {
+    published,
+    skipped
+  };
+}
+
+
+ // CU-05: Block an available slot owned by the authenticated tutor
+async function blockAvailabilitySlot(slotId, tutorId) {
+  return await db.withTransaction(async (client) => {
+
+    // Lock the slot to prevent concurrent booking or modification
+    const { rows } = await client.query(`
+      SELECT id, tutor_id, status
+      FROM availability_slots
+      WHERE id = $1
+      FOR UPDATE
+    `, [slotId]);
+
+    const slot = rows[0];
+
+    // Check whether the slot exists
+    if (!slot) {
+      throw new AppError(404, 'Slot not found', 'SLOT_NOT_FOUND');
+    }
+
+    // Verify that the slot belongs to the tutor
+    if (slot.tutor_id !== tutorId) {
+      throw new AppError(403, 'You do not own this slot', 'FORBIDDEN');
+    }
+
+    // Prevent removing an already booked slot
+    if (slot.status === 'BOOKED') {
+      throw new AppError(
+        409,
+        'This slot has just been booked. Please cancel it from your appointments dashboard.',
+        'SLOT_ALREADY_BOOKED'
+      );
+    }
+
+    // Only available slots can be blocked
+    if (slot.status !== 'AVAILABLE') {
+      throw new AppError(
+        409,
+        'Slot is not available for removal',
+        'INVALID_SLOT_STATUS'
+      );
+    }
+
+    // Mark the slot as unavailable
+    const result = await client.query(`
+      UPDATE availability_slots
+      SET status = 'UNAVAILABLE'
+      WHERE id = $1
+      RETURNING id, tutor_id, status
+    `, [slotId]);
+
+    return result.rows[0];
+  });
+}
+
+
 module.exports = {
   findSlotById,
   createBooking,
   findAppointmentById,
-  cancelAppointment
+  cancelAppointment,
+  canTutorPublishSlots,
+  publishAvailabilitySlots,
+  blockAvailabilitySlot
 };
