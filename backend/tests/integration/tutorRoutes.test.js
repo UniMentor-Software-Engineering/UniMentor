@@ -4,9 +4,11 @@ const jwt = require('jsonwebtoken');
 const config = require('../../src/config/env');
 const tutorService = require('../../src/services/tutorService');
 const userRepository = require('../../src/repositories/userRepository');
+const bookingService = require('../../src/services/bookingService');
 
 jest.mock('../../src/services/tutorService');
 jest.mock('../../src/repositories/userRepository');
+jest.mock('../../src/services/bookingService');
 
 const TUTOR_ID = 'b0000000-0000-0000-0000-000000000001';
 
@@ -160,5 +162,44 @@ describe('Tutor Routes Integration Tests', () => {
       expect(res.body).toEqual(profile);
       expect(tutorService.getOwnProfile).toHaveBeenCalledWith(TUTOR_ID);
     });
+  });
+});
+
+
+describe('Tutor Availability Tests (CU-07)', () => {
+  const TUTOR_ID = 'b0000000-0000-0000-0000-000000000001';
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should return 200 with available slots', async () => {
+    const slots = [
+      {
+        id: 'e0000000-0000-0000-0000-000000000003',
+        tutor_id: TUTOR_ID,
+        status: 'AVAILABLE'
+      }
+    ];
+
+    bookingService.getTutorAvailability.mockResolvedValue(slots);
+
+    const res = await request(app)
+      .get(`/api/tutors/${TUTOR_ID}/availability`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(slots);
+    expect(bookingService.getTutorAvailability)
+      .toHaveBeenCalledWith(TUTOR_ID);
+  });
+
+  it('should return an empty list when no slots exist', async () => {
+    bookingService.getTutorAvailability.mockResolvedValue([]);
+
+    const res = await request(app)
+      .get(`/api/tutors/${TUTOR_ID}/availability`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([]);
   });
 });

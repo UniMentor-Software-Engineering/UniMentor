@@ -153,10 +153,30 @@ async function blockAvailabilitySlot(tutorId, slotId) {
 }
 
 
+ // CU-07: Retrieve the available slots of an active tutor
+async function getTutorAvailability(tutorId) {
+
+  // Validate the tutor ID
+  if (!isUuid(tutorId)) {
+    throw new AppError(400, 'Invalid tutor ID', 'INVALID_ID');
+  }
+
+  // Verify that the tutor exists and is active
+  const tutor = await tutorRepository.findTutorById(tutorId);
+
+  if (!tutor) {
+    throw new AppError(404, 'Tutor not found', 'TUTOR_NOT_FOUND');
+  }
+
+  // Retrieve available slots with more than 2 hours advance notice
+  return await appointmentRepository.findAvailableSlotsByTutor(tutorId);
+}
+
 module.exports = {
   createBooking,
   cancelAppointment,
   splitIntoHourlySlots,
   publishAvailability,
-  blockAvailabilitySlot
+  blockAvailabilitySlot,
+  getTutorAvailability
 };

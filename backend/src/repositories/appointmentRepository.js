@@ -20,6 +20,7 @@ async function findSlotById(slotId) {
 }
 
  // Create a booking using a database transaction
+
 async function createBooking(slotId, studentId, studentInquiry = null) {
   return await db.withTransaction(async (client) => {
 
@@ -40,6 +41,22 @@ async function createBooking(slotId, studentId, studentInquiry = null) {
 
     if (slot.status !== 'AVAILABLE') {
       throw new AppError(409, 'Slot is not available', 'SLOT_UNAVAILABLE');
+    }
+
+    // BR-CONF-01: Enforce the minimum 2-hour advance booking rule
+    const { rows: timeCheck } = await client.query(`
+      SELECT lower(time_range) > CURRENT_TIMESTAMP + INTERVAL '2 hours'
+        AS can_book
+      FROM availability_slots
+      WHERE id = $1
+    `, [slotId]);
+
+    if (!timeCheck[0]?.can_book) {
+      throw new AppError(
+        409,
+        'Appointments must be booked more than 2 hours in advance',
+        'BOOKING_TOO_LATE'
+      );
     }
 
     // Create the appointment
@@ -307,6 +324,26 @@ async function blockAvailabilitySlot(slotId, tutorId) {
 }
 
 
+ // CU-07: Find a tutor's available slots with at least 2 hours advance notice
+async function findAvailableSlotsByTutor(tutorId) {
+  const { rows } = await db.query(`
+    SELECT
+      id,
+      tutor_id,
+      lower(time_range) AS start_time,
+      upper(time_range) AS end_time,
+      status
+    FROM availability_slots
+    WHERE tutor_id = $1
+      AND status = 'AVAILABLE'
+      AND lower(time_range) > CURRENT_TIMESTAMP + INTERVAL '2 hours'
+    ORDER BY lower(time_range) ASC
+  `, [tutorId]);
+
+  return rows;
+}
+
+
 module.exports = {
   findSlotById,
   createBooking,
@@ -314,5 +351,6 @@ module.exports = {
   cancelAppointment,
   canTutorPublishSlots,
   publishAvailabilitySlots,
-  blockAvailabilitySlot
+  blockAvailabilitySlot,
+  findAvailableSlotsByTutor
 };
