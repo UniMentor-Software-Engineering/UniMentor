@@ -543,3 +543,140 @@ The CU-02 rule (*5 consecutive failed attempts lock the account for 15 minutes*)
 #### Related decisions
 
 ADR 4 (JWT in an `HttpOnly` cookie, cross-site CORS with credentials and CSRF protection), NFR-02 (bcrypt with cost 12, signed JWT, cookie flags `HttpOnly; Secure; SameSite=None` in production, checked by the integration tests), CU-13 (account status checked on every request) and CU-14 (the critical actions are written to the append-only `audit_logs` table inside the same transaction as the action, so a suspension can never exist without its audit entry).
+
+### 4.3.2 Repository: Isolating Data Access
+
+**Type:** architectural (Fowler, *Patterns of Enterprise Application Architecture*). **Use cases:** every use case that reads or writes data; the booking module (CU-04, CU-05, CU-07, CU-08, CU-09) is where it matters most.
+
+**Status:** applied in all the code merged so far (`userRepository`, `tutorRepository`, `subjectRepository`, `adminRepository`, `auditLogRepository`, `healthRepository`). The booking repository is the next one to be written, and its code below is the planned design for CU-08.
+
+#### Problem
+
+The booking flow mixes two kinds of knowledge: business rules (BR-CONF-01: two hours of advance notice; BR-CONF-04: at most three active bookings) and persistence details (`SELECT ... FOR UPDATE`, `TSTZRANGE`, the composite foreign key of Section 4.2). If services contained SQL, a schema change would spread through the business logic, the same query would be repeated in several use cases, and no rule could be unit-tested without a running database. Concatenating SQL in many places would also make it harder to check that every query is parameterized (NFR-02).
+
+#### Solution
+
+Each aggregate gets one module in `repositories/` that exposes intention-revealing functions and hides the SQL behind them. It is the only layer that writes SQL, and it returns plain objects. Because JavaScript has no interfaces, the contract is the set of exported functions, which is exactly what the tests replace with `jest.mock`.
+
+| Role | UniMentor element |
+|---|---|
+| **Repository** | `repositories/*Repository.js` (real), `appointmentRepository.js` (planned) |
+| **Client** | The services: `authService`, `adminService`, `bookingService` (planned) |
+| **Unit of work** | `db.withTransaction(work)`, which gives `work` a dedicated client between `BEGIN` and `COMMIT` or `ROLLBACK` |
+
+The important design decision is how a repository takes part in a transaction. A use case such as CU-13 spans several repositories, so the service opens the transaction and passes the client to each function. This is the real suspension flow, shortened:
+
+```js
+// adminService.js: the service decides WHAT happens and in which order
+return db.withTransaction(async (client) => {
+  const target = await userRepository.lockById(client, targetId); // SELECT ... FOR UPDATE
+  const user = await userRepository.updateStatus(client, targetId, 'SUSPENDED');
+  const cancelled = await adminRepository.cancelFutureAppointments(client, targetId, adminId);
+  await adminRepository.releaseSlots(client, cancelled.map((a) => a.slot_id), targetId);
+  await auditLogRepository.insert({ actorId: adminId, action: 'USER_SUSPENDED' /* ... */ }, client);
+  return { user, cancelledAppointments: cancelled };
+});
+```
+
+The booking transaction of CU-08 (planned) uses the same shape and follows the sequence diagram of Section 3.2.2-A. Locking the student row serializes parallel bookings by one student, so the quota cannot be bypassed; locking the slot row makes the second of two simultaneous requests see `BOOKED` and answer 409:
+
+```js
+// bookingService.js (planned): rules here, SQL in the repositories
+return db.withTransaction(async (client) => {
+  await userRepository.lockById(client, studentId);
+  const slot = await appointmentRepository.lockSlot(client, slotId); // SELECT ... FOR UPDATE
+  if (slot.status !== 'AVAILABLE') throw new AppError(409, SLOT_TAKEN);          // CU-08, A1
+  if (startsInLessThanTwoHours(slot)) throw new AppError(400, NOTICE_TOO_SHORT); // BR-CONF-01
+  if ((await appointmentRepository.countActive(client, studentId)) >= 3) {       // BR-CONF-04
+    throw new AppError(400, QUOTA_EXCEEDED);
+  }
+  await appointmentRepository.markSlotBooked(client, slotId);
+  return appointmentRepository.create(client, { slot, studentId, sessionType, inquiry });
+});
+```
+
+#### Consequences
+
+**Benefits**
+
+- **Separation of concerns.** Rules live in services and SQL lives in repositories, so a schema change such as migration `003_add_session_type.sql` only touches the repositories that use the column.
+- **Testability.** Services are unit-tested with mocked repositories, without PostgreSQL (`tests/unit/adminService.test.js`). Real SQL needs its own tests against a real database, because a mock cannot detect a wrong query.
+- **One place to audit.** Parameterized queries (NFR-02) and locks (NFR-03) are reviewed in a single folder.
+- **Reuse.** `lockById` serves both suspending an account and, as planned, serializing bookings.
+
+**Drawbacks**
+
+- **More files and indirection.** A simple read still crosses four layers.
+- **Business rules can leak.** A `WHERE status = 'CONFIRMED'` is a persistence filter that also encodes a rule. We accept this where the database must do the filtering.
+- **The abstraction is not total.** Services must know that a transaction exists and pass `client` along, which is the price of letting one transaction span several repositories.
+
+**Why not an ORM.** Sequelize or Prisma would generate the SQL, but UniMentor depends on PostgreSQL features that are clearer in plain SQL: `TSTZRANGE`, `EXCLUDE` constraints and explicit row locks (ADR 2). Hand-written repositories keep those visible.
+
+#### Related decisions
+
+ADR 2 (PostgreSQL and `SELECT ... FOR UPDATE`), NFR-02 (parameterized queries), NFR-03 (concurrent bookings), NFR-04 (layered architecture) and BR-CONF-05 (Section 4.2.3: the database constraints remain the last line of defence if a rule in the service were ever wrong).
+
+### 4.3.3 Adapter and Strategy: the Notification Service
+
+**Type:** structural (Adapter) and behavioral (Strategy), both GoF. **Use cases:** CU-01 (welcome email), CU-08 (confirmation), CU-09 and CU-13 (cancellation notices) and CU-10 (reminders).
+
+**Status:** design. `NotificationService` is not implemented yet; the code below shows the structure that will be built to meet ADR 6. The points that will call it are already marked in `authService.js` and `adminService.js`.
+
+#### Problem
+
+ADR 6 chose SendGrid but requires the provider to stay behind a single interface. Calling the SendGrid SDK directly from the services would cause three problems. Business logic would depend on a vendor's API, so changing provider would touch every use case. Tests and local development would send real email or need an API key. And a provider failure could undo a booking that is already valid, while the requirements treat email as asynchronous: the booking commits first (CU-08, steps 7 and 8), and a failed reminder is simply retried in the next cycle (CU-10, A1).
+
+#### Solution
+
+Two patterns solve different parts of the problem. **Adapter** converts the interface we want into the one SendGrid offers. **Strategy** makes the delivery channel interchangeable: the service holds one provider and does not know which one it is, and the provider is chosen once, from the configuration, when the application starts.
+
+| GoF role | UniMentor element |
+|---|---|
+| **Target / Strategy interface** | An email provider: an object with `send({ to, subject, text, html })` |
+| **Adapter / ConcreteStrategy** | `SendGridProvider` (wraps `@sendgrid/mail`) |
+| **ConcreteStrategy** | `ConsoleProvider` (logs the message, for development and tests) |
+| **Adaptee** | The SendGrid SDK |
+| **Context / Client** | `NotificationService`, used by the services and by the CU-10 scheduler |
+
+```js
+// SendGridProvider.js: the only module that knows the SDK
+class SendGridProvider {
+  constructor(client, from) { this.client = client; this.from = from; }
+  async send({ to, subject, text, html }) {
+    await this.client.send({ to, from: this.from, subject, text, html });
+  }
+}
+
+// NotificationService.js: the use cases speak its language, not the vendor's
+class NotificationService {
+  constructor(provider) { this.provider = provider; } // injected Strategy
+  async sendBookingConfirmation(appointment) {
+    const message = bookingTemplate(appointment);
+    await Promise.all([
+      this.provider.send({ to: appointment.studentEmail, ...message }),
+      this.provider.send({ to: appointment.tutorEmail, ...message }),
+    ]);
+  }
+}
+```
+
+Failures are handled according to each use case, using the same provider. After a `COMMIT`, a failed confirmation is logged and does not affect the response, because the booking is already valid. In CU-10 the scheduler sets `reminder_sent = TRUE` only after the provider accepts the message (the sequence diagram of Section 3.2.2), so a failure leaves the appointment queued for the next 10-minute cycle.
+
+#### Consequences
+
+**Benefits**
+
+- **Vendor independence.** Replacing SendGrid means writing one new provider class. No use case changes, which is the impact ADR 6 asks for.
+- **Testability.** Tests inject a fake provider and check which messages would be sent, with no network and no API key.
+- **Safe development.** Without an API key, `ConsoleProvider` is selected and no real email can leave a developer's machine.
+- **Open/Closed.** A new channel, such as SMS, is a new class that implements the same interface.
+
+**Drawbacks**
+
+- **More classes** for what currently is a single provider. We accept them because ADR 6 explicitly requires the boundary, and the fake provider pays for itself in the tests.
+- **The interface is a lowest common denominator.** Provider-specific features such as SendGrid's dynamic templates are not exposed; our templates are rendered in our own code.
+- **Asynchronous failures are less visible.** An email lost after the `COMMIT` does not reach the user as an error, so failures must be logged.
+
+#### Related decisions
+
+ADR 6 (SendGrid behind a single interface), goal G5 (confirmation within 60 seconds, reminders 24 hours before with a tolerance of 15 minutes), CU-10 (retries through `reminder_sent`) and NFR-04 (maintainability).
