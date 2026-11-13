@@ -12,13 +12,18 @@ function getStatus() {
 }
 
 async function getDatabaseStatus() {
+  let result;
   try {
-    const databaseTime = await healthRepository.ping();
-    return { status: 'ok', database: 'up', databaseTime };
+    result = await healthRepository.ping();
   } catch (err) {
     console.error('Database health check failed:', err.message || err.code);
     throw new AppError(503, 'Database unavailable', 'DB_UNAVAILABLE');
   }
+  if (!result.schemaReady) {
+    console.error('Database health check failed: the tables do not exist. Run npm run db:migrate.');
+    throw new AppError(503, 'Database schema not ready', 'DB_SCHEMA_NOT_READY');
+  }
+  return { status: 'ok', database: 'up', databaseTime: result.now };
 }
 
 module.exports = { getStatus, getDatabaseStatus };

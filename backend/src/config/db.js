@@ -1,6 +1,7 @@
 // PostgreSQL connection pool (ADR 2). A single pool is shared by the whole application,
 // so connections are reused instead of opened on every request.
-// Only the repositories layer should import this module.
+// Only repositories run SQL with it. A service may import it just to open a transaction
+// that spans several repositories (withTransaction).
 const { Pool } = require('pg');
 const config = require('./env');
 

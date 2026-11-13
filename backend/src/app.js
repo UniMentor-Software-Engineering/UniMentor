@@ -10,6 +10,7 @@ const apiRoutes = require('./routes');
 const notFound = require('./middlewares/notFound');
 const errorHandler = require('./middlewares/errorHandler');
 const csrfProtection = require('./middlewares/csrfMiddleware');
+const rejectNullBytes = require('./middlewares/inputMiddleware');
 
 const app = express();
 
@@ -46,7 +47,7 @@ app.use(cookieParser());
 
 // First link of the chain for every API route: state-changing requests without the
 // X-Requested-With header are rejected before touching the database (ADR 4).
-app.use('/api', csrfProtection, apiRoutes);
+app.use('/api', csrfProtection, rejectNullBytes, apiRoutes);
 
 // These two must be registered last.
 app.use(notFound);

@@ -23,12 +23,22 @@ describe('GET /api/health', () => {
 
 describe('GET /api/health/db', () => {
   it('returns 200 when PostgreSQL answers', async () => {
-    db.query.mockResolvedValueOnce({ rows: [{ now: '2026-10-19T10:00:00.000Z' }] });
+    db.query.mockResolvedValueOnce({ rows: [{ now: '2026-10-19T10:00:00.000Z', schema_ready: true }] });
 
     const res = await request(app).get('/api/health/db');
 
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ status: 'ok', database: 'up' });
+  });
+
+  it('returns 503 when PostgreSQL answers but the migrations never ran', async () => {
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    db.query.mockResolvedValueOnce({ rows: [{ now: '2026-10-19T10:00:00.000Z', schema_ready: false }] });
+
+    const res = await request(app).get('/api/health/db');
+
+    expect(res.status).toBe(503);
+    expect(res.body.error.message).toBe('Database schema not ready');
   });
 
   it('returns 503 with the standard error format when PostgreSQL is down', async () => {

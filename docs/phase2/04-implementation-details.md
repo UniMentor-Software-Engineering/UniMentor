@@ -1,7 +1,7 @@
 ---
 eyebrow: PHASE 2 · SECTION 04
 title: Implementation Details
-subtitle: UniMentor / Software Engineering · Project structure, modularity, dependency management with npm, core integration, quality assurance and deployment.
+subtitle: UniMentor / Software Engineering · Project structure, dependency management with npm, deployment, database schema and design patterns.
 footer: UNIMENTOR / PHASE 2
 ---
 
@@ -15,7 +15,7 @@ UniMentor is a single Git repository (*monorepo*) with two independently deploya
 
 ```
 UniMentor/
-├── .github/workflows/ci.yml   CI: lint + tests + audit on every push/PR to main
+├── .github/workflows/ci.yml   CI: lint, tests, audit and real-database tests on every PR
 ├── render.yaml                Render Blueprint: API + PostgreSQL (ADR 7)
 ├── docs/                      Documentation by phase (+ build/ for the PDFs)
 ├── backend/                   REST API, Node.js + Express (ADR 1)
@@ -31,12 +31,14 @@ UniMentor/
 │   │   ├── controllers/       HTTP layer (req/res)
 │   │   ├── services/          Business rules
 │   │   ├── repositories/      SQL and data access
-│   │   ├── middlewares/       Cross-cutting: notFound.js, errorHandler.js
-│   │   └── utils/             AppError.js (error carrying an HTTP status)
-│   └── tests/                 Jest + Supertest suites
+│   │   ├── middlewares/       Cross-cutting: security chain, errorHandler.js, notFound.js
+│   │   ├── utils/             AppError.js, validators.js, sessionCookie.js
+│   │   └── database/          SQL migrations, seed data, db:migrate and db:create-admin
+│   └── tests/                 Mocked suites, db/ (real PostgreSQL), load/ (Artillery)
 └── frontend/                  Static site, vanilla HTML/CSS/JS (ADR 3)
-    ├── index.html
-    ├── css/base.css           Design tokens, reset, shared components
+    ├── *.html                 One page per screen (login, tutors, profile, admin...)
+    ├── vercel.json            Security headers of the pages
+    ├── css/                   base.css (design tokens, shared components), page styles
     └── js/                    config.js, api.js (only module calling fetch), page scripts
 ```
 
@@ -55,7 +57,7 @@ Each layer of Section 3.1 is a folder with a single responsibility. The guiding 
 | `middlewares/` | Cross-cutting | The request pipeline | Specific use cases | `errorHandler.js`, `authenticate.js` |
 | `config/`, `utils/` | Infrastructure | Environment, DB pool, shared helpers | Domain logic | `db.js`, `AppError.js` |
 
-**Dependency rule.** Calls only go *downwards*: `routes → controllers → services → repositories → config/db`. A controller never runs SQL, a service never touches `req`/`res`, and only repositories import `db.js`. As a result, a business rule such as BR-CONF-01 (2-hour advance notice) exists in exactly one place and can be unit-tested without HTTP or a database; a schema change (Section 4.3) only affects repositories; and replacing the frontend (ADR 3) would not change the backend.
+**Dependency rule.** Calls only go *downwards*: `routes → controllers → services → repositories → config/db`. A controller never runs SQL, a service never touches `req`/`res`, and only repositories run SQL (a service may call `db.withTransaction()` to open a transaction that spans several repositories, Section 4.3.2). As a result, a business rule such as BR-CONF-01 (2-hour advance notice) exists in exactly one place and can be unit-tested without HTTP or a database; a schema change (Section 4.2) only affects repositories; and replacing the frontend (ADR 3) would not change the backend.
 
 **Request walkthrough (CU-08).** The booking sequence diagram (Section 3.2.2-A) maps onto files as follows:
 
@@ -67,7 +69,7 @@ Each layer of Section 3.1 is a folder with a single responsibility. The guiding 
 
 The skeleton already contains one complete vertical slice, the health check (`healthRoutes.js → healthController.js → healthService.js → healthRepository.js`), which every team member uses as the template for new use cases.
 
-**Why layers and not feature folders.** The alternative is one folder per feature (`booking/`, `auth/`) containing all layers. We chose layer folders because (a) Section 3.1 and NFR-04 define the architecture in terms of layers, so the tree makes it visible and checkable; (b) with 14 use cases each layer folder stays small; and (c) the design patterns of Section 4.2 are layer-wide (Repository in `repositories/`, Chain of Responsibility in `middlewares/`). Inside each layer, files are named after their feature, so finding the code of one use case stays easy.
+**Why layers and not feature folders.** The alternative is one folder per feature (`booking/`, `auth/`) containing all layers. We chose layer folders because (a) Section 3.1 and NFR-04 define the architecture in terms of layers, so the tree makes it visible and checkable; (b) with 14 use cases each layer folder stays small; and (c) the design patterns of Section 4.3 are layer-wide (Repository in `repositories/`, Chain of Responsibility in `middlewares/`). Inside each layer, files are named after their feature, so finding the code of one use case stays easy.
 
 **`app.js` vs `server.js`.** `app.js` configures Express but does not open a port; `server.js` calls `listen()` and handles `SIGTERM` (sent by Render on every deploy) by closing the server and the database pool. The separation lets tests send requests to the app in memory with Supertest.
 
@@ -81,7 +83,7 @@ Maven and Gradle declare libraries, download them from a central repository and 
 "scripts": {
   "start": "node src/server.js",      "dev": "nodemon src/server.js",
   "lint": "eslint .",                 "test": "jest",
-  "test:coverage": "jest --coverage"
+  "test:coverage": "jest --coverage", "db:migrate": "node src/database/migrate.js"
 }
 ```
 
@@ -124,7 +126,7 @@ For `0.x` versions the caret is stricter (`^0.4.1` means `<0.5.0`), because any 
 - **Configuration (`config/env.js`).** The only module that reads `process.env`. It gives defaults for development and **fails at startup in production** if `DATABASE_URL`, `JWT_SECRET` or `FRONTEND_ORIGIN` is missing. Secrets live in `.env` (ignored by Git) or in the Render dashboard; `.env.example` documents them.
 - **Database connection (`config/db.js`, ADR 2).** One shared `pg.Pool`, so connections are reused (NFR-01). It exposes `query(text, params)`, always with `$1, $2...` placeholders (NFR-02), and `withTransaction(work)`, which runs `BEGIN`, the work, then `COMMIT`, or `ROLLBACK` if anything throws, always releasing the client. It is the base for the booking transaction with `SELECT ... FOR UPDATE` (CU-08, G2, NFR-03) and the suspension transaction (CU-13).
 - **Error handling.** Services throw `AppError(status, message, code)`. Express 5 forwards rejected promises from `async` handlers automatically, so controllers need no `try/catch`. `notFound.js` turns unknown routes into 404s, and `errorHandler.js` returns one JSON format, `{ "error": { "status", "message", "code" } }`, hiding internal details of 5xx errors in production.
-- **Cross-site authentication (ADR 4).** Frontend (Vercel) and API (Render) are on different sites and the JWT travels in an HttpOnly cookie. The skeleton enables `cors({ origin: FRONTEND_ORIGIN, credentials: true })` (other origins are blocked), `cookie-parser` (the auth middleware reads `req.cookies`) and `trust proxy` (real client IP behind Render's proxy, used by the audit logs of CU-14).
+- **Cross-site authentication (ADR 4).** Frontend (Vercel) and API (Render) are on different sites and the JWT travels in an HttpOnly cookie. The skeleton enables `cors({ origin: FRONTEND_ORIGIN, credentials: true })` (other origins are blocked), `cookie-parser` (the auth middleware reads `req.cookies`) and `trust proxy` (Render terminates HTTPS in a proxy, so this makes Express see the real protocol and client address).
 - **Security headers (NFR-02).** `helmet` adds HSTS, `X-Content-Type-Options: nosniff`, `X-Frame-Options` and a Content-Security-Policy of `default-src 'none'` to every API response, since the API only returns JSON. The pages get their own policy from Vercel (`frontend/vercel.json`): scripts and styles only from the site itself (plus `cdn.jsdelivr.net` for FullCalendar, ADR 5), `fetch` only to the site and `*.onrender.com`, no inline scripts and no framing. Together with writing user text through `textContent`, it is the XSS mitigation required by NFR-02.
 - **Frontend client (`frontend/js/api.js`).** No page calls `fetch()` directly. The module adds `credentials: 'include'` so the browser sends the cookie while JavaScript never sees the token; serialises JSON; adds the `X-Requested-With` header, which cannot be sent cross-site without passing CORS and supports the CSRF protection of ADR 4; turns error responses into an `ApiError`; and redirects to the login page on `401` (CU-11, A1). Usage: `await api.get('/tutors/' + id + '/availability')`. `config.js` selects the API URL (local or Render) without a build step (ADR 3).
 - **Base CSS (`frontend/css/base.css`).** Design tokens as CSS variables (colours, typography, spacing), a reset and shared components (cards, buttons, form fields, badges, toasts), including the slot colours for FullCalendar (ADR 5): available slots in green (CU-04, CU-07).
@@ -132,10 +134,11 @@ For `0.x` versions the caret is stricter (`^0.4.1` means `<0.5.0`), because any 
 ### 4.1.5 Quality Assurance, Deployment and Workflow
 
 - **ESLint** (`eslint.config.js`, flat configuration required since ESLint 9): recommended rules plus `prefer-const`, `no-var` and `eqeqeq`.
-- **Jest + Supertest**: tests for the health endpoints, 404 and malformed JSON handling, the CORS policy, and `withTransaction` commit/rollback. The database is mocked, so the suite runs without PostgreSQL. Coverage threshold: 70 % of lines (NFR-04); current coverage is about 95 %.
-- **GitHub Actions** (`ci.yml`): on every push and Pull Request to `main` it runs `npm ci → lint → test:coverage → npm audit`. A red check blocks the merge.
-- **Deployment (ADR 7).** `render.yaml` defines the `unimentor-api` web service (`rootDir: backend`, `npm ci --omit=dev`, `npm start`, health check `/api/health`) and the `unimentor-db` PostgreSQL database; `DATABASE_URL` is injected from the database and `JWT_SECRET` is generated by Render. Vercel serves `frontend/` as static files over its CDN. Both redeploy on every push to `main`. The landing page calls `/api/health` and `/api/health/db` through `api.js`, showing whether the whole chain (browser → Vercel → Render API → PostgreSQL) works.
-- **Workflow.** Each use case gets its own branch (`feature/cu-08-booking`) and Pull Request, reviewed by another member and merged only with a green CI. A new use case adds its four files (route, controller, service, repository), mounts its router in `routes/index.js` and adds tests, following the health module. The Git history therefore records each member's work, and `main` always passes linting and tests.
+- **Jest + Supertest**: two suites. `npm test` mocks the database and covers rules, routes and security without PostgreSQL. Coverage threshold: 70 % of lines (NFR-04); current coverage is about 98 %. `npm run test:db` runs the real app against a real PostgreSQL, which a mock cannot replace: migrations, constraints, SQL queries and concurrent requests.
+- **Load test (NFR-01).** `tests/load/directory.yml` runs Artillery with 50 concurrent virtual users and fails if the 95th percentile exceeds 200 ms. A local run with 300 tutors measured 79 ms; the deployed service has to be measured as well, because Render's free plan is slower.
+- **GitHub Actions** (`ci.yml`): on every push to `main` and every Pull Request it runs two jobs: `npm ci → lint → test:coverage → npm audit`, and the real-database suite against a PostgreSQL 17 service.
+- **Deployment (ADR 7).** `render.yaml` defines the `unimentor-api` web service (`rootDir: backend`, `npm ci --omit=dev`, health check `/api/health`) and the `unimentor-db` PostgreSQL database; `DATABASE_URL` is injected from the database and `JWT_SECRET` is generated by Render. The start command is `npm run db:migrate && npm start`, so pending migrations are applied first, and a failed migration prevents the new version from starting. The first administrator is created with `npm run db:create-admin`, so no production password is stored in the repository. Vercel serves `frontend/` as static files over its CDN. Both redeploy on every push to `main`. The landing page calls `/api/health` and `/api/health/db` through `api.js`, showing whether the whole chain (browser → Vercel → Render API → PostgreSQL) works; `/api/health/db` answers 503 if the database is reachable but its tables do not exist.
+- **Workflow.** The team's rule is one branch and one Pull Request per use case (`feature/cu-08-booking`), reviewed by another member and merged only with a green CI. A new use case adds its four files (route, controller, service, repository), mounts its router in `routes/index.js` and adds tests, following the health module.
 
 ---
 
@@ -203,15 +206,16 @@ The relational model consists of seven primary tables structured to satisfy refe
   ├───────────────────────────────────────────────────────────┤
   │ id (PK, UUID)                                             │
   │ slot_id (FK -> availability_slots)                        │
-  │ tutor_id (FK -> users)          <── Deliberate            │
+  │ tutor_id (part of the slot FK)  <── Deliberate            │
   │ student_id (FK -> users)                                  │
   │ time_range (TSTZRANGE)          <── Denormalization       │
   │ session_type (ENUM: QUICK_CHECK, STANDARD, DEEP_DIVE)     │
   │ status (ENUM: CONFIRMED, COMPLETED, CANCELLED)            │
   │ student_inquiry (TEXT), tutor_notes (TEXT)                │
-  │ student_feedback (TEXT)                                   │
-  │ is_late_cancellation (BOOLEAN)                            │
+  │ student_rating (SMALLINT), student_feedback (TEXT)        │
+  │ reminder_sent (BOOLEAN), is_late_cancellation (BOOLEAN)   │
   │ cancelled_by (FK -> users), cancelled_at (TIMESTAMPTZ)    │
+  │ cancellation_reason (VARCHAR)                             │
   │ created_at (TIMESTAMPTZ), updated_at (TIMESTAMPTZ)        │
   │ FK (slot_id, tutor_id, time_range) -> slots               │
   └───────────────────────────────────────────────────────────┘
@@ -237,9 +241,7 @@ A relation is in 2NF if it satisfies 1NF and all non-prime attributes are fully 
 A relation is in 3NF if it satisfies 2NF and contains no transitive dependencies (no non-prime attribute depends on another non-prime attribute).
 * **Role Specialization**: Tutor-specific metadata (`bio`, `meeting_url`) is segregated into `tutor_profiles` via a 1:1 relation referencing `users(id)`. Placing these attributes directly in `users` would introduce null values for student accounts and violate functional cohesion.
 * **Strategic Denormalization in `appointments`**:
-  Under strict 3NF rules, the `appointments` relation would only require `slot_id` and `student_id`. The attributes `tutor_id` and `time_range` are transitively dependent on `slot_id` through `availability_slots`:
-  $$\text{slot\_id} \to (\text{tutor\_id}, \text{time\_range})$$
-  However, removing these columns would mean that enforcing business rule **BR-CONF-05** (preventing a student from booking two concurrent appointments across different tutors) could only be achieved via:
+  Under strict 3NF rules, the `appointments` relation would only require `slot_id` and `student_id`. The attributes `tutor_id` and `time_range` are transitively dependent on `slot_id` through `availability_slots`: `slot_id → (tutor_id, time_range)`. However, removing these columns would mean that enforcing business rule **BR-CONF-05** (preventing a student from booking two concurrent appointments across different tutors) could only be achieved via:
   1. An application-level read-before-write query, which is vulnerable to race conditions under concurrent client execution.
   2. A heavy PL/pgSQL lock trigger escalating table-level locks.
 
@@ -306,7 +308,7 @@ Represents all system actors (Students, Tutors, and Administrators).
 |---|---|---|---|---|
 | `id` | UUID | No | `gen_random_uuid()` | Primary Key |
 | `email` | VARCHAR(255) | No | - | Unique, normalized lowercase |
-| `password_hash` | VARCHAR(255) | No | - | Cryptographic hash (bcrypt, 10 salt rounds) |
+| `password_hash` | VARCHAR(255) | No | - | Cryptographic hash (bcrypt, cost 12) |
 | `first_name` | VARCHAR(100) | No | - | User first name |
 | `last_name` | VARCHAR(100) | No | - | User last name |
 | `role` | ENUM `user_role` | No | `'STUDENT'` | `'STUDENT'`, `'TUTOR'`, `'ADMIN'` |
@@ -372,15 +374,18 @@ Scheduled tutoring sessions booked by students.
 | Column | Type | Nullable | Default | Description / Constraints |
 |---|---|---|---|---|
 | `id` | UUID | No | `gen_random_uuid()` | Primary Key |
-| `slot_id` | UUID | No | - | FK -> `availability_slots(id)` |
-| `tutor_id` | UUID | No | - | FK -> `users(id)` (Denormalized) |
+| `slot_id` | UUID | No | - | Part of the composite FK to `availability_slots` |
+| `tutor_id` | UUID | No | - | Part of the composite FK (Denormalized) |
 | `student_id` | UUID | No | - | FK -> `users(id)` ON DELETE CASCADE |
-| `time_range` | TSTZRANGE | No | - | UTC interval (Denormalized) |
+| `time_range` | TSTZRANGE | No | - | Part of the composite FK (Denormalized) |
 | `session_type` | ENUM `session_type` | No | `'STANDARD'` | `'QUICK_CHECK'` (5 min), `'STANDARD'` (30 min), `'DEEP_DIVE'` (60 min); always one 60-minute block (BR-CONF-03) |
 | `status` | ENUM `appointment_status` | No | `'CONFIRMED'` | `'CONFIRMED'`, `'COMPLETED'`, `'CANCELLED'` |
 | `student_inquiry` | TEXT | Yes | `NULL` | Student consultation notes/questions |
 | `tutor_notes` | TEXT | Yes | `NULL` | Private notes recorded by tutor after session |
-| `student_feedback` | TEXT | Yes | `NULL` | Student rating and feedback |
+| `student_rating` | SMALLINT | Yes | `NULL` | Rating from 1 to 5 (`CHECK`); `NULL` until the student rates the session (CU-12) |
+| `student_feedback` | TEXT | Yes | `NULL` | Optional written feedback (CU-12) |
+| `reminder_sent` | BOOLEAN | No | `FALSE` | Set when the email provider accepts the reminder (CU-10) |
+| `cancellation_reason` | VARCHAR(500) | Yes | `NULL` | Optional reason given when cancelling (CU-09) |
 | `is_late_cancellation` | BOOLEAN | No | `FALSE` | Set when cancelled less than 4 hours before the start (BR-CONF-02) |
 | `cancelled_by` | UUID | Yes | `NULL` | FK -> `users(id)` tracking cancellation initiator |
 | `cancelled_at` | TIMESTAMPTZ | Yes | `NULL` | Cancellation timestamp |
@@ -417,10 +422,11 @@ Database schema migrations are managed through version-controlled, sequential SQ
 * **State Tracking**: The table `schema_migrations (id SERIAL PRIMARY KEY, filename VARCHAR(255) NOT NULL UNIQUE, applied_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP)` records every executed script.
 * **Transactional Atomicity**: Each migration file is read and executed inside an explicit `BEGIN ... COMMIT` block. If any statement fails, the transaction is rolled back immediately via `ROLLBACK`, leaving the schema in a clean, consistent state.
 * **Idempotency**: Running `npm run db:migrate` repeatedly is safe; migrations already present in `schema_migrations` are automatically skipped.
-* **Current migrations**: `001_initial_schema.sql` (types, tables, constraints and triggers), `002_add_indexes.sql` (secondary indexes, Section 4.2.6), `003_add_session_type.sql` (the `session_type` ENUM and column) and `004_add_unaccent.sql` (the `unaccent` extension, so the CU-06 search ignores accents: `unaccent(u.first_name) ILIKE unaccent($1)` lets "garcia" find "García" and "algebra" find "Álgebra Lineal"). The third and fourth ones show the rule the team follows: a migration that is already in `main` is never edited, because databases that applied it would not run it again; every change is a new numbered file.
+* **Current migrations**: `001_initial_schema.sql` (types, tables, constraints and triggers), `002_add_indexes.sql` (secondary indexes, Section 4.2.6), `003_add_session_type.sql` (the `session_type` ENUM and column), `004_add_unaccent.sql` (the `unaccent` extension, so the CU-06 search ignores accents: `unaccent(u.first_name) ILIKE unaccent($1)` lets "garcia" find "García" and "algebra" find "Álgebra Lineal") and `005_add_reminder_rating_cancel_reason.sql` (the columns that CU-09, CU-10 and CU-12 need). The last three show the rule the team follows: a migration that is already in `main` is never edited, because databases that applied it would not run it again; every change is a new numbered file.
 
 #### Seed Strategy (`src/database/seeds.sql`)
 Test and development datasets are loaded via `npm run db:seed`:
+* **Protection**: The seed empties every table and its password is public, so the script refuses to run in production or against a remote database unless `ALLOW_SEED_RESET=true` is set.
 * **Cryptographic Hashes**: Seed accounts use genuine bcrypt password hashes (cost factor 10) matching the standard testing credential `Password123!`.
 * **Standardized Roles**: Creates an administrator (`admin@unimentor.edu`), certified tutors (`laura.garcia@unimentor.edu`, `carlos.martin@unimentor.edu`), and students.
 * **Realistic Scheduling Scenarios**: Slots are placed at round hours with at least two hours of notice. Appointments are populated covering all three valid lifecycle states: one active confirmed future session, one completed past session with notes and feedback, and one cancelled appointment tracking `cancelled_by` and `cancelled_at`.
@@ -429,7 +435,7 @@ Test and development datasets are loaded via `npm run db:seed`:
 
 ### 4.2.6 Query Optimization and Indexing Strategy
 
-Many lookups are already served by indexes that PostgreSQL creates for the constraints: the primary keys, `UNIQUE (email)`, `UNIQUE (code)`, the GiST indexes behind the two `EXCLUDE` constraints and the partial unique index `uq_appointments_active_slot`. Migration `002_add_indexes.sql` adds only the indexes that the main read paths still need to stay under 200 ms (NFR-01):
+Many lookups are already served by indexes that PostgreSQL creates for the constraints: the primary keys, `UNIQUE (email)`, `UNIQUE (code)`, the GiST indexes behind the two `EXCLUDE` constraints and the partial unique index `uq_appointments_active_slot`. Migrations `002_add_indexes.sql` and `005_add_reminder_rating_cancel_reason.sql` add only the indexes that the main read paths still need to stay under 200 ms (NFR-01):
 
 | Index | Columns | Used by |
 |---|---|---|
@@ -437,6 +443,7 @@ Many lookups are already served by indexes that PostgreSQL creates for the const
 | `idx_appointments_student` | `appointments (student_id)` | CU-11: the student's dashboard |
 | `idx_appointments_tutor` | `appointments (tutor_id)` | CU-11: the tutor's dashboard |
 | `idx_availability_slots_available` | `availability_slots (tutor_id, lower(time_range)) WHERE status = 'AVAILABLE'` | CU-06 and CU-07: the next free slot of a tutor. Being partial, it only stores free slots and stays small |
+| `idx_appointments_pending_reminder` | `appointments (lower(time_range)) WHERE status = 'CONFIRMED' AND NOT reminder_sent` | CU-10: the reminders still pending, every 10 minutes |
 
 No index was added for columns that are not filtered on, because every index slows down writes and the booking transaction (CU-08) is the most write-sensitive path of the system.
 
@@ -461,16 +468,16 @@ Each check is an independent **handler** with the same signature, `(req, res, ne
 | GoF role | UniMentor element |
 |---|---|
 | **Handler** (common interface) | The Express middleware signature `(req, res, next)` |
-| **ConcreteHandler** | `csrfProtection` (`csrfMiddleware.js`), `verifyJWT` and `requireRole(...roles)` (`authMiddleware.js`), and the final controller |
+| **ConcreteHandler** | `csrfProtection` (`csrfMiddleware.js`), `rejectNullBytes` (`inputMiddleware.js`), `verifyJWT` and `requireRole(...roles)` (`authMiddleware.js`), and the final controller |
 | **Successor link** | Calling `next()` |
 | **Stopping the chain** | `throw new AppError(status, message, code)`. Express 5 sends it, also from `async` handlers, straight to `errorHandler.js`, the last link (Section 4.1.4), which writes the JSON error |
 | **Client** (builds the chain) | `app.js` and the routers (`adminRoutes.js`, `tutorRoutes.js`...) |
 
-The chain is assembled in two places of the real code. `csrfProtection` is mounted once for the whole API, so no route can forget it, and each router adds the links it needs:
+The chain is assembled in two places of the real code. `csrfProtection` and `rejectNullBytes` are mounted once for the whole API, so no route can forget them, and each router adds the links it needs:
 
 ```js
-// app.js: first link for every API route
-app.use('/api', csrfProtection, apiRoutes);
+// app.js: first links for every API route
+app.use('/api', csrfProtection, rejectNullBytes, apiRoutes);
 
 // adminRoutes.js: the whole router requires an active ADMIN account (CU-13, CU-14)
 router.use(verifyJWT, requireRole('ADMIN'));
@@ -512,7 +519,8 @@ router.put('/profile', verifyJWT, requireRole('TUTOR'), tutorController.updatePr
 #### What each link does
 
 - **`csrfProtection` (ADR 4, NFR-02).** The session cookie is `SameSite=None` because the frontend (Vercel) and the API (Render) are on different sites, so a forged request from another site would also carry it. The link lets `GET`, `HEAD` and `OPTIONS` through and requires the `X-Requested-With: XMLHttpRequest` header on every other method. A cross-site page cannot add a custom header without a CORS preflight, and CORS only accepts the configured frontend origins. `frontend/js/api.js` adds the header to every request. It also protects `/auth/login` against *login CSRF*.
-- **`verifyJWT`.** Reads the token from the `HttpOnly` cookie (never from `localStorage` or the `Authorization` header, which ADR 4 rejected), verifies the signature and expiry with `HS256`, and then reads `id, role, status` from `users`. A `SUSPENDED` account is rejected with 403 even if its token is still valid, which is how CU-13 *"invalidates any JWT already issued"*. The role also comes from the database, so a role change applies immediately. It leaves `req.user = { id, role }` for the next links.
+- **`rejectNullBytes`.** Answers 400 if the query or the body contains a NUL character, which PostgreSQL cannot store in text and would otherwise end as a 500. It is omitted from the diagram above, between `csrfProtection` and `verifyJWT`.
+- **`verifyJWT`.** Reads the token from the `HttpOnly` cookie (never from `localStorage` or the `Authorization` header, which ADR 4 rejected), verifies the signature and expiry with `HS256` (clearing the cookie if they fail, CU-11 A1), and then reads `id, role, status` from `users`. A `SUSPENDED` account is rejected with 403 even if its token is still valid, which is how CU-13 *"invalidates any JWT already issued"*. The role also comes from the database, so a role change applies immediately. It leaves `req.user = { id, role }` for the next links.
 - **`requireRole(...roles)`.** Answers 401 if no previous link authenticated the request and 403 if the role is not allowed (CU-13, A1). The roles are the values of the `user_role` ENUM.
 
 #### Why the order matters
