@@ -19,6 +19,16 @@ export function currentUser() {
   return api.get('/auth/me');
 }
 
+// For public pages: returns the signed-in user, or null for an anonymous visitor,
+// who stays on the page instead of being redirected.
+export async function optionalUser() {
+  try {
+    return await api.get('/auth/me', { redirectOn401: false });
+  } catch {
+    return null;
+  }
+}
+
 export async function logout() {
   try {
     await api.post('/auth/logout');

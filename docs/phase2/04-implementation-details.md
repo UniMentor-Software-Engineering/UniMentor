@@ -627,3 +627,67 @@ These trade-offs are justified because UniMentor requires reliable reservation m
 The Repository pattern supports CU-04, CU-05, CU-07, CU-08 and CU-09, as well as NFR-03 concerning concurrent booking consistency and BR-CONF-01 concerning minimum booking notice.
 
 Its implementation follows the project's layered architecture and database consistency requirements.
+### 4.3.3 Adapter and Strategy: the Notification Service
+
+**Type:** structural (Adapter) and behavioral (Strategy), both GoF. **Use cases:** CU-01 (welcome email), CU-08 (confirmation), CU-09 and CU-13 (cancellation notices) and CU-10 (reminders).
+
+**Status:** design. `NotificationService` is not implemented yet; the code below shows the structure that will be built to meet ADR 6. The points that will call it are already marked in `authService.js` and `adminService.js`.
+
+#### Problem
+
+ADR 6 chose SendGrid but requires the provider to stay behind a single interface. Calling the SendGrid SDK directly from the services would cause three problems. Business logic would depend on a vendor's API, so changing provider would touch every use case. Tests and local development would send real email or need an API key. And a provider failure could undo a booking that is already valid, while the requirements treat email as asynchronous: the booking commits first (CU-08, steps 7 and 8), and a failed reminder is simply retried in the next cycle (CU-10, A1).
+
+#### Solution
+
+Two patterns solve different parts of the problem. **Adapter** converts the interface we want into the one SendGrid offers. **Strategy** makes the delivery channel interchangeable: the service holds one provider and does not know which one it is, and the provider is chosen once, from the configuration, when the application starts.
+
+| GoF role | UniMentor element |
+|---|---|
+| **Target / Strategy interface** | An email provider: an object with `send({ to, subject, text, html })` |
+| **Adapter / ConcreteStrategy** | `SendGridProvider` (wraps `@sendgrid/mail`) |
+| **ConcreteStrategy** | `ConsoleProvider` (logs the message, for development and tests) |
+| **Adaptee** | The SendGrid SDK |
+| **Context / Client** | `NotificationService`, used by the services and by the CU-10 scheduler |
+
+```js
+// SendGridProvider.js: the only module that knows the SDK
+class SendGridProvider {
+  constructor(client, from) { this.client = client; this.from = from; }
+  async send({ to, subject, text, html }) {
+    await this.client.send({ to, from: this.from, subject, text, html });
+  }
+}
+
+// NotificationService.js: the use cases speak its language, not the vendor's
+class NotificationService {
+  constructor(provider) { this.provider = provider; } // injected Strategy
+  async sendBookingConfirmation(appointment) {
+    const message = bookingTemplate(appointment);
+    await Promise.all([
+      this.provider.send({ to: appointment.studentEmail, ...message }),
+      this.provider.send({ to: appointment.tutorEmail, ...message }),
+    ]);
+  }
+}
+```
+
+Failures are handled according to each use case, using the same provider. After a `COMMIT`, a failed confirmation is logged and does not affect the response, because the booking is already valid. In CU-10 the scheduler sets `reminder_sent = TRUE` only after the provider accepts the message (the sequence diagram of Section 3.2.2), so a failure leaves the appointment queued for the next 10-minute cycle.
+
+#### Consequences
+
+**Benefits**
+
+- **Vendor independence.** Replacing SendGrid means writing one new provider class. No use case changes, which is the impact ADR 6 asks for.
+- **Testability.** Tests inject a fake provider and check which messages would be sent, with no network and no API key.
+- **Safe development.** Without an API key, `ConsoleProvider` is selected and no real email can leave a developer's machine.
+- **Open/Closed.** A new channel, such as SMS, is a new class that implements the same interface.
+
+**Drawbacks**
+
+- **More classes** for what currently is a single provider. We accept them because ADR 6 explicitly requires the boundary, and the fake provider pays for itself in the tests.
+- **The interface is a lowest common denominator.** Provider-specific features such as SendGrid's dynamic templates are not exposed; our templates are rendered in our own code.
+- **Asynchronous failures are less visible.** An email lost after the `COMMIT` does not reach the user as an error, so failures must be logged.
+
+#### Related decisions
+
+ADR 6 (SendGrid behind a single interface), goal G5 (confirmation within 60 seconds, reminders 24 hours before with a tolerance of 15 minutes), CU-10 (retries through `reminder_sent`) and NFR-04 (maintainability).

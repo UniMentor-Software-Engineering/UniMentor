@@ -36,11 +36,11 @@ INSERT INTO availability_slots (id, tutor_id, time_range, status) VALUES
 ('e0000000-0000-0000-0000-000000000004', 'b0000000-0000-0000-0000-000000000002', tstzrange(CURRENT_DATE + INTERVAL '2 days 16 hours', CURRENT_DATE + INTERVAL '2 days 17 hours'), 'AVAILABLE');
 
 -- 6. Citas de prueba (Confirmada, Completada, Cancelada)
-INSERT INTO appointments (id, slot_id, tutor_id, student_id, time_range, session_type, status, student_inquiry, tutor_notes, student_feedback) VALUES
+INSERT INTO appointments (id, slot_id, tutor_id, student_id, time_range, session_type, status, student_inquiry, tutor_notes, student_rating, student_feedback) VALUES
 -- Cita confirmada futura
-('f0000000-0000-0000-0000-000000000001', 'e0000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000001', 'c0000000-0000-0000-0000-000000000001', tstzrange(CURRENT_DATE + INTERVAL '1 day 10 hours', CURRENT_DATE + INTERVAL '1 day 11 hours'), 'STANDARD', 'CONFIRMED', 'Dudas con segmentación de cauce (pipelining).', NULL, NULL),
+('f0000000-0000-0000-0000-000000000001', 'e0000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000001', 'c0000000-0000-0000-0000-000000000001', tstzrange(CURRENT_DATE + INTERVAL '1 day 10 hours', CURRENT_DATE + INTERVAL '1 day 11 hours'), 'STANDARD', 'CONFIRMED', 'Dudas con segmentación de cauce (pipelining).', NULL, NULL, NULL),
 -- Cita completada pasada
-('f0000000-0000-0000-0000-000000000002', 'e0000000-0000-0000-0000-000000000003', 'b0000000-0000-0000-0000-000000000001', 'c0000000-0000-0000-0000-000000000001', tstzrange(CURRENT_DATE - INTERVAL '2 days 10 hours', CURRENT_DATE - INTERVAL '2 days 9 hours'), 'DEEP_DIVE', 'COMPLETED', 'Repaso de memorias caché.', 'El estudiante completó los ejercicios con éxito.', 'Excelente explicación de las políticas de reemplazo.');
+('f0000000-0000-0000-0000-000000000002', 'e0000000-0000-0000-0000-000000000003', 'b0000000-0000-0000-0000-000000000001', 'c0000000-0000-0000-0000-000000000001', tstzrange(CURRENT_DATE - INTERVAL '2 days 10 hours', CURRENT_DATE - INTERVAL '2 days 9 hours'), 'DEEP_DIVE', 'COMPLETED', 'Repaso de memorias caché.', 'El estudiante completó los ejercicios con éxito.', 5, 'Excelente explicación de las políticas de reemplazo.');
 
 -- Cita cancelada: the student cancelled it, so its slot (e...0002) is AVAILABLE again and
 -- neither uq_appointments_active_slot nor no_student_appointment_overlap count it.

@@ -9,7 +9,12 @@ const ALLOWED_MEETING_HOSTS = [
   'teams.live.com'
 ];
 
+const MAX_MEETING_URL_LENGTH = 500; // tutor_profiles.meeting_url is VARCHAR(500)
+
 function validateMeetingUrl(urlString) {
+  if (urlString.length > MAX_MEETING_URL_LENGTH) {
+    return false;
+  }
   try {
     const parsed = new URL(urlString);
     if (parsed.protocol !== 'https:') {

@@ -38,3 +38,45 @@ jobs:
 
       - name: Audit production dependencies (NFR-02)
         run: npm audit --omit=dev --audit-level=high
+
+  # The job above mocks the database, so it cannot detect a wrong query or a missing column.
+  database:
+    name: Tests against a real PostgreSQL
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: unimentor
+          POSTGRES_PASSWORD: unimentor
+          POSTGRES_DB: unimentor_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U unimentor"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Migrations, constraints and main flows
+        run: npm run test:db
+        env:
+          TEST_DATABASE_URL: postgres://unimentor:unimentor@localhost:5432/unimentor_test

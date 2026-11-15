@@ -15,8 +15,11 @@
     "lint:fix": "eslint . --fix",
     "test": "jest",
     "test:coverage": "jest --coverage",
+    "test:db": "jest --config jest.db.config.js --runInBand",
+    "test:load": "npx artillery@2 run tests/load/directory.yml",
     "db:migrate": "node src/database/migrate.js",
-    "db:seed": "node src/database/seed.js"
+    "db:seed": "node src/database/seed.js",
+    "db:create-admin": "node src/database/createAdmin.js"
   },
   "keywords": [
     "tutoring",
@@ -47,6 +50,10 @@
     "testEnvironment": "node",
     "testMatch": [
       "<rootDir>/tests/**/*.test.js"
+    ],
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "<rootDir>/tests/db/"
     ],
     "collectCoverageFrom": [
       "src/**/*.js",

@@ -9,7 +9,8 @@ services:
     rootDir: backend
     # Production install: exact versions from package-lock.json, without devDependencies.
     buildCommand: npm ci --omit=dev
-    startCommand: npm start
+    # Applies the pending migrations before starting; if one fails, the new version does not start.
+    startCommand: npm run db:migrate && npm start
     healthCheckPath: /api/health
     autoDeploy: true
     envVars:
@@ -21,7 +22,11 @@ services:
           property: connectionString
       - key: JWT_SECRET
         generateValue: true
-      # Set manually in the Render dashboard to the Vercel URL, e.g. https://unimentor.vercel.app
+      # University email domains that can register (CU-01).
+      - key: ALLOWED_EMAIL_DOMAINS
+        value: myuax.com
+      # Set manually in the Render dashboard to the Vercel URL. The name unimentor.vercel.app
+      # belongs to someone else, so the team's project needs a different one.
       - key: FRONTEND_ORIGIN
         sync: false
 

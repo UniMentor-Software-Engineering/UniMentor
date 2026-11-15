@@ -1,6 +1,6 @@
 # Estado del proyecto UniMentor
 
-*Última actualización: 30 de octubre de 2026 (semana 8)*
+*Última actualización: 5 de noviembre de 2026 (semana 9)*
 
 Este documento resume en qué punto está el proyecto, qué falta y cómo ponerse a trabajar. Si eres del equipo, léelo antes de crear tu rama.
 
@@ -33,20 +33,20 @@ P4 tiene la parte más difícil. Quien acabe antes, que le ayude con el frontend
 
 ---
 
-## Resumen de avance (30 oct)
+## Resumen de avance (5 nov)
 
-> **Fusionados en `main` el 30 oct, sin revisión de un compañero:** #8 (P3), #9 (P1) y #10 (P2). Conviene que cada uno revise después el PR de su parte en GitHub y deje un comentario. **Después de `git pull`, ejecutar `npm install` y `npm run db:migrate` en `backend/`** (nuevas dependencias `bcryptjs` y `helmet`, y la migración 004).
+> **Después de `git pull`, ejecutar `npm install` y `npm run db:migrate` en `backend/`** (hay una migración nueva, la 005). Las secciones 4.3.2 y 4.3.3 y las correcciones de la revisión del 5 de noviembre están en dos PRs, pendientes de revisar y fusionar.
 
 Estimación por partes: código (backend y tests), frontend, sección del documento y revisión y despliegue.
 
 | Parte | Backend + tests | Frontend | Documento | Revisión / despliegue | **Avance** |
 |---|---|---|---|---|---|
-| P1 Estructura e integración | ✅ (+ cabeceras de seguridad y CSP, PR #9) | ✅ (`api.js`, CSS) | ✅ 4.1 | ❌ despliegue en Render/Vercel, revisión del PR #4 | **~85 %** |
-| P2 BD y búsqueda | ✅ (+ `unaccent`, PR #10) | ✅ búsqueda y perfil (PR #10) | ✅ 4.2 | ✅ PR #6 y #10 en `main` | **~95 %** |
-| P3 Autenticación y admin | ✅ | ✅ | ✅ 4.3.1 | ✅ PR #8 en `main` (falta la revisión de un compañero) | **~95 %** |
-| P4 Reservas | ❌ | ❌ | ❌ 4.3.2 | ❌ | **0 %** |
-| P5 Notificaciones e historial | ❌ | ❌ | ❌ 4.3.3 | ❌ | **0 %** |
-| **Proyecto** | | | | | **~55 %** |
+| P1 Estructura e integración | ✅ | ✅ | ✅ 4.1 | ❌ despliegue, revisiones de compañeros y protección de `main` | **~85 %** |
+| P2 BD y búsqueda | ✅ | ✅ | ✅ 4.2 | ❌ revisión de un compañero | **~95 %** |
+| P3 Autenticación y admin | ✅ (faltan las conexiones con P5) | ✅ | ✅ 4.3.1 | ❌ revisión de un compañero | **~90 %** |
+| P4 Reservas | ❌ | ❌ | 🟡 4.3.2 escrita, el código del ejemplo aún es diseño | ❌ | **~10 %** |
+| P5 Notificaciones e historial | ❌ (columnas ya creadas) | ❌ | 🟡 4.3.3 escrita, describe un diseño sin implementar | ❌ | **~10 %** |
+| **Proyecto** | | | | | **~60 %** |
 
 ---
 
@@ -83,11 +83,14 @@ Se ha probado de punta a punta con un PostgreSQL real: navegador → `api.js` �
 
 ### P1 (urgente, antes de presentar esta semana)
 
-- [ ] **Desplegar el backend y la BD en Render.** En Render: New → Blueprint → seleccionar este repo (usa `render.yaml`).
+- [ ] **Desplegar el backend y la BD en Render.** En Render: New → Blueprint → seleccionar este repo (usa `render.yaml`). Las migraciones se aplican solas al arrancar.
+- [ ] **Crear el primer administrador** con `npm run db:create-admin` (pasos en el `README.md`, sección *Deployment*). **No usar `db:seed` en la base de datos desplegada:** borra todo y crea cuentas con una contraseña pública.
 - [ ] **Desplegar el frontend en Vercel.** Importar el repo con *Root Directory* = `frontend`, sin comando de build. ⚠️ El nombre `unimentor.vercel.app` **ya lo usa otra persona**, así que hay que elegir otro.
 - [ ] En Render, poner la variable `FRONTEND_ORIGIN` con la URL real de Vercel.
 - [ ] En `frontend/js/config.js`, cambiar `PRODUCTION_API_URL` por la URL real de Render (ahora hay una provisional).
-- [ ] Abrir la URL de Vercel y comprobar que la página muestra "API: online" y "Database: online".
+- [ ] Abrir la URL de Vercel y comprobar que la página muestra "API: online" y "Database: online". Probar también el login en Safari, que puede bloquear la cookie entre sitios (ADR 4).
+- [ ] Repetir la prueba de carga contra Render: `npx artillery@2 run --target <URL de Render> tests/load/directory.yml` (en local: p95 de 79 ms con 300 tutores).
+- [ ] Decidir qué hacer con SonarQube y OWASP ZAP, que la Fase 1 cita como métodos de prueba de NFR-02 (ZAP necesita la URL desplegada y SonarQube, una cuenta).
 - [ ] **Revisión del PR #4 por un compañero.** Se fusionó sin revisión. Basta con que alguien lo revise y deje un comentario.
 - [ ] Activar la protección de `main` en GitHub (Settings → Branches → "Require a pull request review before merging").
 
@@ -133,7 +136,11 @@ Se ha probado de punta a punta con un PostgreSQL real: navegador → `api.js` �
 
 ### P4, P5
 
-- [ ] Sus casos de uso y su patrón de diseño (para la semana 9).
+- [x] Secciones 4.3.2 (Repository) y 4.3.3 (Adapter y Strategy). Indican qué es diseño todavía: el responsable de cada parte debe revisarlas y actualizarlas al implementar.
+- [x] Columnas que necesitan: `reminder_sent` (CU-10), `student_rating` (CU-12) y `cancellation_reason` (CU-09), en la migración 005.
+- [ ] Sus casos de uso: P4 (CU-04, 05, 07, 08, 09 y el test de concurrencia) y P5 (CU-10, 11, 12 y `NotificationService`).
+
+**Para P4:** el test de concurrencia (NFR-03) va en `backend/tests/db/`, que ya se ejecuta contra PostgreSQL real en el CI (`npm run test:db`).
 
 ---
 

@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const config = require('../config/env');
 const userRepository = require('../repositories/userRepository');
 const AppError = require('../utils/AppError');
+const { sessionCookieOptions } = require('../utils/sessionCookie');
 
 /**
  * Authentication. Reads the JWT from the HttpOnly cookie (ADR 4), verifies it and
@@ -23,6 +24,8 @@ async function verifyJWT(req, res, next) {
   try {
     payload = jwt.verify(token, config.jwtSecret, { algorithms: ['HS256'] });
   } catch (err) {
+    // CU-11, A1: the server clears the cookie of an expired or invalid session.
+    res.clearCookie('token', sessionCookieOptions());
     const message = err.name === 'TokenExpiredError'
       ? 'Your session has expired. Please sign in again.'
       : 'Invalid session. Please sign in again.';

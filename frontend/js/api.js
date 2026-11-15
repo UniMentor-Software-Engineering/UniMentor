@@ -19,7 +19,7 @@ export class ApiError extends Error {
   }
 }
 
-async function request(method, path, body) {
+async function request(method, path, body, { redirectOn401 = true } = {}) {
   const options = {
     method,
     credentials: 'include',
@@ -48,7 +48,7 @@ async function request(method, path, body) {
     const error = new ApiError(response.status, message, data?.error?.code);
 
     const onLoginPage = window.location.pathname.endsWith(LOGIN_PAGE);
-    if (response.status === 401 && !onLoginPage) {
+    if (response.status === 401 && redirectOn401 && !onLoginPage) {
       window.location.href = LOGIN_PAGE;
     }
     throw error;
@@ -58,7 +58,7 @@ async function request(method, path, body) {
 }
 
 export const api = {
-  get: (path) => request('GET', path),
+  get: (path, options) => request('GET', path, undefined, options),
   post: (path, body) => request('POST', path, body),
   put: (path, body) => request('PUT', path, body),
   patch: (path, body) => request('PATCH', path, body),
