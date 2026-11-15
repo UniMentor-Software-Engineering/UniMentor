@@ -1,6 +1,7 @@
 const tutorService = require('../services/tutorService');
 const AppError = require('../utils/AppError');
 const { isUuid, parsePagination } = require('../utils/validators');
+const bookingService = require('../services/bookingService');
 
 const DEFAULT_LIMIT = 10;
 const MAX_SEARCH_LENGTH = 100;
@@ -67,9 +68,28 @@ async function updateProfile(req, res, next) {
   }
 }
 
+
+ // CU-07: Retrieve the available calendar slots of a tutor
+async function getAvailability(req, res, next) {
+  try {
+    // Get the tutor ID from the URL
+    const tutorId = req.params.id;
+
+    // Retrieve available slots through the booking service
+    const slots = await bookingService.getTutorAvailability(tutorId);
+
+    // Return the tutor's available slots
+    res.status(200).json(slots);
+  } catch (error) {
+    next(error);
+  }
+}
+
+
 module.exports = {
   search,
   getProfile,
   getOwnProfile,
-  updateProfile
+  updateProfile,
+  getAvailability
 };

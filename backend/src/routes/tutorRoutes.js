@@ -8,6 +8,11 @@ router.get('/', tutorController.search);
 // Declared before '/:id' so that "profile" is not taken as a tutor ID.
 router.get('/profile', verifyJWT, requireRole('TUTOR'), tutorController.getOwnProfile);
 router.put('/profile', verifyJWT, requireRole('TUTOR'), tutorController.updateProfile);
+
+// CU-07: View an active tutor's available calendar slots
+router.get('/:id/availability', tutorController.getAvailability);
+
+
 router.get('/:id', tutorController.getProfile);
 
 module.exports = router;

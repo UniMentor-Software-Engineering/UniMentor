@@ -7,6 +7,7 @@ const authRoutes = require('./authRoutes');
 const tutorRoutes = require('./tutorRoutes');
 const subjectRoutes = require('./subjectRoutes');
 const adminRoutes = require('./adminRoutes');
+const appointmentRoutes = require('./appointmentRoutes');
 
 const router = Router();
 
@@ -15,5 +16,6 @@ router.use('/auth', authRoutes); // CU-01, CU-02 (P3)
 router.use('/tutors', tutorRoutes); // CU-03, CU-06, CU-07 (P2, P4)
 router.use('/subjects', subjectRoutes);
 router.use('/admin', adminRoutes); // CU-13, CU-14 (P3)
+router.use('/appointments', appointmentRoutes); // CU-08 (P4)
 
 module.exports = router;
