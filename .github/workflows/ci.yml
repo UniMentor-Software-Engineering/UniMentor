@@ -8,9 +8,25 @@ on:
   pull_request:
 
 jobs:
-  backend:
+    backend:
     name: Backend lint and tests
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: unimentor
+          POSTGRES_PASSWORD: unimentor
+          POSTGRES_DB: unimentor
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U unimentor"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
     defaults:
       run:
         working-directory: backend
@@ -33,8 +49,15 @@ jobs:
       - name: Lint (ESLint)
         run: npm run lint
 
+            - name: Prepare test database
+        run: npm run db:migrate
+        env:
+          DATABASE_URL: postgres://unimentor:unimentor@localhost:5432/unimentor
+
       - name: Test with coverage (Jest, NFR-04 >= 70 %)
         run: npm run test:coverage
+        env:
+          DATABASE_URL: postgres://unimentor:unimentor@localhost:5432/unimentor
 
       - name: Audit production dependencies (NFR-02)
         run: npm audit --omit=dev --audit-level=high
