@@ -29,6 +29,16 @@ services:
       # belongs to someone else, so the team's project needs a different one.
       - key: FRONTEND_ORIGIN
         sync: false
+      # P5 email (ADR 6). Without SENDGRID_API_KEY emails are only written to the log.
+      # EMAIL_FROM must be a sender verified in SendGrid; APP_URL is the Vercel URL.
+      - key: SENDGRID_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: APP_URL
+        sync: false
+      - key: EMAIL_TIMEZONE
+        value: Europe/Madrid
 
 databases:
   - name: unimentor-db

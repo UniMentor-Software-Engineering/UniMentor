@@ -38,6 +38,22 @@ router.patch(
 );
 
 
+// CU-12 step 2: the tutor's notes on a completed session
+router.put(
+  '/:id/notes',
+  verifyJWT,
+  requireRole('TUTOR'),
+  appointmentController.saveNotes
+);
+
+// CU-12 step 3: the student's rating (once) and feedback
+router.post(
+  '/:id/review',
+  verifyJWT,
+  requireRole('STUDENT'),
+  appointmentController.submitReview
+);
+
  // CU-04: Allow authenticated tutors to publish availability slots
 router.post(
   '/availability',

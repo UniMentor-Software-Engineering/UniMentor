@@ -5,6 +5,7 @@ const config = require('../config/env');
 const userRepository = require('../repositories/userRepository');
 const auditLogRepository = require('../repositories/auditLogRepository');
 const AppError = require('../utils/AppError');
+const notifications = require('../notifications');
 
 // NFR-02: bcrypt with a work factor of at least 10.
 const BCRYPT_COST = 12;
@@ -111,8 +112,13 @@ async function register({ firstName, lastName, email, password, role } = {}) {
     details: { role: user.role },
   });
 
-  // Step 8 (welcome email) belongs to P5's NotificationService (ADR 6). When it exists,
-  // call it here without awaiting a failure: a failed email must not undo the registration.
+  // Step 8: welcome email (ADR 6). Sent in the background: a failed email is logged
+  // and does not undo the registration.
+  notifications.notifyInBackground('welcome email', () => notifications.sendWelcome({
+    email: user.email,
+    first_name: user.first_name,
+    role: user.role,
+  }));
 
   return user;
 }

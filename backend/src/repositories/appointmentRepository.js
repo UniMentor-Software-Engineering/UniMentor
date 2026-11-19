@@ -403,6 +403,10 @@ async function findAppointmentsForUser(userId, scope) {
       a.is_late_cancellation,
       a.cancellation_reason,
       a.cancelled_at,
+      a.tutor_notes,
+      a.student_rating,
+      a.student_feedback,
+      (a.status = 'COMPLETED') AS can_review,
       (a.cancelled_by IS NOT DISTINCT FROM $1::uuid) AS cancelled_by_me,
       CASE WHEN a.student_id = $1 THEN 'STUDENT' ELSE 'TUTOR' END AS my_role,
       t.id AS tutor_id,
@@ -456,6 +460,138 @@ async function findSlotsByTutorInRange(tutorId, from, to) {
 }
 
 
+ // ---------- P5: notifications, reminders (CU-10), history (CU-11), notes and rating (CU-12) ----------
+
+const DETAILS_SELECT = `
+  SELECT
+    a.id,
+    a.status,
+    a.session_type,
+    lower(a.time_range) AS start_time,
+    upper(a.time_range) AS end_time,
+    a.student_inquiry,
+    a.cancellation_reason,
+    a.cancelled_by,
+    a.is_late_cancellation,
+    tp.meeting_url,
+    json_build_object('id', s.id, 'email', s.email, 'first_name', s.first_name, 'last_name', s.last_name) AS student,
+    json_build_object('id', t.id, 'email', t.email, 'first_name', t.first_name, 'last_name', t.last_name) AS tutor
+  FROM appointments a
+  JOIN users s ON s.id = a.student_id
+  JOIN users t ON t.id = a.tutor_id
+  LEFT JOIN tutor_profiles tp ON tp.user_id = a.tutor_id
+`;
+
+// Everything an email needs about some appointments: both participants and the meeting link.
+async function findAppointmentDetails(appointmentIds) {
+  if (!appointmentIds || appointmentIds.length === 0) return [];
+  const { rows } = await db.query(`${DETAILS_SELECT} WHERE a.id = ANY($1::uuid[])`, [appointmentIds]);
+  return rows;
+}
+
+// CU-11 business rule: a confirmed session whose end has passed becomes COMPLETED.
+// Run by the scheduler and before the dashboard is read.
+async function completeFinishedAppointments() {
+  const { rowCount } = await db.query(`
+    UPDATE appointments
+    SET status = 'COMPLETED'
+    WHERE status = 'CONFIRMED'
+      AND upper(time_range) <= CURRENT_TIMESTAMP
+  `);
+  return rowCount;
+}
+
+// CU-10 step 1: confirmed sessions starting within the next 24 hours without a reminder.
+// Sessions booked less than 24 hours ahead are picked up by the next cycle.
+async function findPendingReminders(limit = 100) {
+  const { rows } = await db.query(`
+    ${DETAILS_SELECT}
+    WHERE a.status = 'CONFIRMED'
+      AND NOT a.reminder_sent
+      AND lower(a.time_range) > CURRENT_TIMESTAMP
+      AND lower(a.time_range) <= CURRENT_TIMESTAMP + INTERVAL '24 hours'
+    ORDER BY lower(a.time_range) ASC
+    LIMIT $1
+  `, [limit]);
+  return rows;
+}
+
+// CU-10 step 4: only after the provider accepted both messages.
+async function markReminderSent(appointmentId) {
+  const { rowCount } = await db.query(`
+    UPDATE appointments
+    SET reminder_sent = TRUE
+    WHERE id = $1 AND NOT reminder_sent
+  `, [appointmentId]);
+  return rowCount === 1;
+}
+
+const NOT_FINISHED_MESSAGE = 'Ratings and notes are accessible only after session completion.';
+
+// Locks the appointment and checks the CU-12 preconditions for the given participant.
+async function lockCompletedAppointment(client, appointmentId, userId, role) {
+  const { rows } = await client.query(`
+    SELECT
+      id, student_id, tutor_id, status, student_rating,
+      upper(time_range) <= CURRENT_TIMESTAMP AS has_ended
+    FROM appointments
+    WHERE id = $1
+    FOR UPDATE
+  `, [appointmentId]);
+  const appointment = rows[0];
+
+  if (!appointment) {
+    throw new AppError(404, 'Appointment not found', 'APPOINTMENT_NOT_FOUND');
+  }
+  const participant = role === 'TUTOR' ? appointment.tutor_id : appointment.student_id;
+  if (participant !== userId) {
+    throw new AppError(403, 'Not authorized to review this appointment', 'FORBIDDEN');
+  }
+  if (appointment.status === 'CANCELLED') {
+    throw new AppError(409, 'Cancelled sessions cannot be reviewed', 'INVALID_STATUS');
+  }
+  // CU-12 A1: premature feedback attempt
+  if (!appointment.has_ended) {
+    throw new AppError(409, NOT_FINISHED_MESSAGE, 'SESSION_NOT_COMPLETED');
+  }
+  return appointment;
+}
+
+// CU-12 step 2: the tutor's private notes (can be edited later).
+async function saveTutorNotes(appointmentId, tutorId, notes) {
+  return await db.withTransaction(async (client) => {
+    await lockCompletedAppointment(client, appointmentId, tutorId, 'TUTOR');
+    const { rows } = await client.query(`
+      UPDATE appointments
+      SET tutor_notes = $2,
+          status = 'COMPLETED'
+      WHERE id = $1
+      RETURNING id, status, tutor_notes
+    `, [appointmentId, notes]);
+    return rows[0];
+  });
+}
+
+// CU-12 step 3: the student's rating (1-5) and optional feedback, only once.
+async function submitStudentReview(appointmentId, studentId, rating, feedback) {
+  return await db.withTransaction(async (client) => {
+    const appointment = await lockCompletedAppointment(client, appointmentId, studentId, 'STUDENT');
+    if (appointment.student_rating !== null) {
+      throw new AppError(409, 'You have already rated this session', 'ALREADY_RATED');
+    }
+    const { rows } = await client.query(`
+      UPDATE appointments
+      SET student_rating = $2,
+          student_feedback = $3,
+          status = 'COMPLETED'
+      WHERE id = $1
+      RETURNING id, status, student_rating, student_feedback
+    `, [appointmentId, rating, feedback]);
+    return rows[0];
+  });
+}
+
+
 module.exports = {
   findSlotById,
   createBooking,
@@ -467,5 +603,12 @@ module.exports = {
   findAvailableSlotsByTutor,
   findAppointmentsForUser,
   findSlotsByTutorInRange,
-  MAX_ACTIVE_APPOINTMENTS
+  MAX_ACTIVE_APPOINTMENTS,
+  findAppointmentDetails,
+  completeFinishedAppointments,
+  findPendingReminders,
+  markReminderSent,
+  saveTutorNotes,
+  submitStudentReview,
+  NOT_FINISHED_MESSAGE
 };

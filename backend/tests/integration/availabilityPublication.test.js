@@ -143,37 +143,33 @@ describe('Availability Publication Integration Tests (CU-04)', () => {
   });
 
 it('should reject publishing a slot that overlaps an existing appointment', async () => {
-  const appointmentResult = await db.query(`
-    SELECT
-      a.id,
-      a.tutor_id,
-      lower(a.time_range) AS start_time,
-      upper(a.time_range) AS end_time
-    FROM appointments a
-    WHERE a.status = 'CONFIRMED'
-    ORDER BY a.created_at DESC
-    LIMIT 1
-  `);
+  // Its own booked session, instead of "the latest confirmed appointment in the database":
+  // test files run in parallel, so that row could belong to another file's throwaway tutor.
+  const interval = futureInterval(150);
+  const end = new Date(new Date(interval.startTime).getTime() + 60 * 60 * 1000).toISOString();
+  const slotId = randomUUID();
+  const appointmentId = randomUUID();
 
-  expect(appointmentResult.rows).toHaveLength(1);
+  await db.query(`
+    INSERT INTO availability_slots (id, tutor_id, time_range, status)
+    VALUES ($1, $2, tstzrange($3::timestamptz, $4::timestamptz, '[)'), 'BOOKED')
+  `, [slotId, TUTOR_ID, interval.startTime, end]);
+  createdSlotIds.push(slotId);
+  await db.query(`
+    INSERT INTO appointments (id, slot_id, tutor_id, student_id, time_range)
+    SELECT $1, id, tutor_id, $2, time_range FROM availability_slots WHERE id = $3
+  `, [appointmentId, STUDENT_ID, slotId]);
 
-  const appointment = appointmentResult.rows[0];
+  try {
+    // Attempt to publish availability during the booked session
+    const result = await bookingService.publishAvailability(TUTOR_ID, interval.startTime, end);
 
-  // Attempt to publish availability during an already booked session
-  const result = await bookingService.publishAvailability(
-    appointment.tutor_id,
-    appointment.start_time.toISOString(),
-    appointment.end_time.toISOString()
-  );
-
-  expect(result.published).toHaveLength(0);
-  expect(result.skipped).toHaveLength(1);
-
-  // A past appointment may also be rejected as PAST_SLOT
-  expect([
-    'OVERLAPPING_SLOT',
-    'PAST_SLOT'
-  ]).toContain(result.skipped[0].reason);
+    expect(result.published).toHaveLength(0);
+    expect(result.skipped).toHaveLength(1);
+    expect(result.skipped[0].reason).toBe('OVERLAPPING_SLOT');
+  } finally {
+    await db.query('DELETE FROM appointments WHERE id = $1', [appointmentId]);
+  }
 });
 
 it('should reject availability overlapping a future confirmed appointment', async () => {

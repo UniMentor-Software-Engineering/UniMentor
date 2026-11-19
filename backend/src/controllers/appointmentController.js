@@ -134,12 +134,36 @@ async function blockAvailabilitySlot(req, res, next) {
 }
 
 
-// CU-09 / CU-08 step 9: the signed-in user's appointments (?scope=upcoming|past)
+// CU-11: the signed-in user's appointments. No scope -> { upcoming, history };
+// ?scope=upcoming|past -> that list only.
 async function listMyAppointments(req, res, next) {
   try {
-    const scope = req.query.scope || 'upcoming';
+    const scope = typeof req.query.scope === 'string' && req.query.scope ? req.query.scope : undefined;
     const appointments = await bookingService.listMyAppointments(req.user.id, scope);
     res.status(200).json(appointments);
+  } catch (error) {
+    next(error);
+  }
+}
+
+
+// CU-12 step 2: PUT /appointments/:id/notes { notes }
+async function saveNotes(req, res, next) {
+  try {
+    const appointment = await bookingService.saveTutorNotes(req.user.id, req.params.id, req.body ? req.body.notes : undefined);
+    res.status(200).json({ message: 'Notes saved', appointment });
+  } catch (error) {
+    next(error);
+  }
+}
+
+
+// CU-12 step 3: POST /appointments/:id/review { rating, feedback }
+async function submitReview(req, res, next) {
+  try {
+    const { rating, feedback } = req.body || {};
+    const appointment = await bookingService.submitReview(req.user.id, req.params.id, rating, feedback);
+    res.status(201).json({ message: 'Thank you for your feedback', appointment });
   } catch (error) {
     next(error);
   }
@@ -160,6 +184,8 @@ async function listMySlots(req, res, next) {
 module.exports = {
   listMyAppointments,
   listMySlots,
+  saveNotes,
+  submitReview,
   createBooking,
   cancelAppointment,
   publishAvailability,

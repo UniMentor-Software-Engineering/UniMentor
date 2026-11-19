@@ -3,6 +3,17 @@ const appointmentRepository = require('../repositories/appointmentRepository');
 const AppError = require('../utils/AppError');
 const { isUuid } = require('../utils/validators');
 const tutorRepository = require('../repositories/tutorRepository');
+const notifications = require('../notifications');
+
+// Sends an email about one appointment after the COMMIT, in the background (section 4.3.3):
+// the response does not wait for the provider, and a failure is only logged.
+function notifyAbout(label, appointmentId, send) {
+  return notifications.notifyInBackground(label, async () => {
+    const rows = await appointmentRepository.findAppointmentDetails([appointmentId]);
+    const details = rows && rows[0];
+    if (details) await send(details);
+  });
+}
 
 // CU-08 step 2: session types the student can choose (migration 003)
 const SESSION_TYPES = ['QUICK_CHECK', 'STANDARD', 'DEEP_DIVE'];
@@ -50,12 +61,18 @@ async function createBooking(studentId, slotId, studentInquiry = null, sessionTy
 
   // Create the booking through the repository
   // (it re-checks the slot, the 2-hour notice and the 3-booking quota under lock)
-  return await appointmentRepository.createBooking(
+  const appointment = await appointmentRepository.createBooking(
     slotId,
     studentId,
     studentInquiry || null,
     sessionType
   );
+
+  // CU-08 step 8: confirmation emails with the meeting link, after the COMMIT
+  notifyAbout('booking confirmation', appointment.id,
+    (details) => notifications.sendBookingConfirmation(details));
+
+  return appointment;
 }
 
 
@@ -83,23 +100,83 @@ async function cancelAppointment(userId, appointmentId, reason = null) {
 
   // Delegate the cancellation to the repository
   // The repository checks authorization, status and cancellation timing
-  return await appointmentRepository.cancelAppointment(
+  const appointment = await appointmentRepository.cancelAppointment(
     appointmentId,
     userId,
     cleanReason || null
   );
+
+  // CU-09 step 6: cancellation notices to both users, after the COMMIT
+  notifyAbout('cancellation notice', appointment.id,
+    (details) => notifications.sendCancellationNotice(details));
+
+  return appointment;
 }
 
 
- // CU-09 / CU-08 step 9: list the signed-in user's appointments for the dashboard
-async function listMyAppointments(userId, scope = 'upcoming') {
+ // CU-11: the signed-in user's appointments for the dashboard.
+// Without a scope it returns both lists, { upcoming, history } (CU-11 step 3);
+// with scope=upcoming|past it returns just that list.
+async function listMyAppointments(userId, scope) {
   if (!isUuid(userId)) {
     throw new AppError(400, 'Invalid user ID', 'INVALID_ID');
   }
-  if (!['upcoming', 'past'].includes(scope)) {
+  if (scope !== undefined && !['upcoming', 'past'].includes(scope)) {
     throw new AppError(400, 'scope must be "upcoming" or "past"', 'INVALID_SCOPE');
   }
-  return await appointmentRepository.findAppointmentsForUser(userId, scope);
+
+  // CU-11 business rule: sessions that have ended move to the history as COMPLETED.
+  // The scheduler does it every 10 minutes; doing it here too keeps the dashboard right
+  // when the scheduler has not run (e.g. the free Render instance was asleep).
+  await appointmentRepository.completeFinishedAppointments();
+
+  if (scope) {
+    return await appointmentRepository.findAppointmentsForUser(userId, scope);
+  }
+  const [upcoming, history] = await Promise.all([
+    appointmentRepository.findAppointmentsForUser(userId, 'upcoming'),
+    appointmentRepository.findAppointmentsForUser(userId, 'past'),
+  ]);
+  return { upcoming, history };
+}
+
+
+ // CU-12 step 2: the tutor's notes on a completed session
+const MAX_NOTES = 2000;
+
+async function saveTutorNotes(tutorId, appointmentId, notes) {
+  if (!isUuid(tutorId) || !isUuid(appointmentId)) {
+    throw new AppError(400, 'Invalid appointment ID', 'INVALID_ID');
+  }
+  if (typeof notes !== 'string') {
+    throw new AppError(400, 'Notes must be text', 'INVALID_NOTES');
+  }
+  const clean = notes.trim();
+  if (clean.length > MAX_NOTES) {
+    throw new AppError(400, `Notes must be ${MAX_NOTES} characters or fewer`, 'INVALID_NOTES');
+  }
+  return await appointmentRepository.saveTutorNotes(appointmentId, tutorId, clean || null);
+}
+
+
+ // CU-12 step 3: the student's rating (1-5 stars, once) and optional feedback
+const MAX_FEEDBACK = 1000;
+
+async function submitReview(studentId, appointmentId, rating, feedback) {
+  if (!isUuid(studentId) || !isUuid(appointmentId)) {
+    throw new AppError(400, 'Invalid appointment ID', 'INVALID_ID');
+  }
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+    throw new AppError(400, 'The rating must be a whole number from 1 to 5', 'INVALID_RATING');
+  }
+  if (feedback !== undefined && feedback !== null && typeof feedback !== 'string') {
+    throw new AppError(400, 'Feedback must be text', 'INVALID_FEEDBACK');
+  }
+  const clean = typeof feedback === 'string' ? feedback.trim() : '';
+  if (clean.length > MAX_FEEDBACK) {
+    throw new AppError(400, `Feedback must be ${MAX_FEEDBACK} characters or fewer`, 'INVALID_FEEDBACK');
+  }
+  return await appointmentRepository.submitStudentReview(appointmentId, studentId, rating, clean || null);
 }
 
 
@@ -246,5 +323,7 @@ module.exports = {
   getTutorAvailability,
   listMyAppointments,
   listMySlots,
+  saveTutorNotes,
+  submitReview,
   SESSION_TYPES
 };
