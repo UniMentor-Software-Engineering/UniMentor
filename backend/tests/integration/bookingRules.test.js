@@ -4,6 +4,7 @@
 const db = require('../../src/config/db');
 const appointmentRepository = require('../../src/repositories/appointmentRepository');
 const { randomUUID } = require('crypto');
+const { createTestTutor, removeTestTutor } = require('../helpers/testStudent');
 
 const TUTOR_ID = 'b0000000-0000-0000-0000-000000000001';
 const OTHER_TUTOR_ID = 'b0000000-0000-0000-0000-000000000002';
@@ -11,6 +12,8 @@ const OTHER_TUTOR_ID = 'b0000000-0000-0000-0000-000000000002';
 // A dedicated student, so the seed's appointments do not count towards the quota.
 const STUDENT_ID = randomUUID();
 const createdSlots = [];
+// Tutor without seed slots for the session placed around 'now'
+const NOW_TUTOR_ID = randomUUID();
 
 // Slots far in the future, each on its own hour of a test-specific day.
 const BASE = Date.UTC(2031, 0, 1, 8) + Math.floor(Math.random() * 300) * 24 * 3600 * 1000;
@@ -32,12 +35,14 @@ beforeAll(async () => {
     INSERT INTO users (id, email, password_hash, first_name, last_name, role)
     VALUES ($1, $2, 'x', 'Quota', 'Tester', 'STUDENT')
   `, [STUDENT_ID, `quota-${STUDENT_ID}@unimentor.test`]);
+  await createTestTutor(NOW_TUTOR_ID);
 });
 
 afterAll(async () => {
   await db.query('DELETE FROM appointments WHERE student_id = $1', [STUDENT_ID]);
   await db.query('DELETE FROM availability_slots WHERE id = ANY($1::uuid[])', [createdSlots]);
   await db.query('DELETE FROM users WHERE id = $1', [STUDENT_ID]);
+  await removeTestTutor(NOW_TUTOR_ID);
   await db.pool.end();
 });
 
@@ -125,7 +130,7 @@ describe('Dashboard and calendar listings', () => {
     await db.query(`
       INSERT INTO availability_slots (id, tutor_id, time_range, status)
       VALUES ($1, $2, tstzrange(date_trunc('hour', now()) - interval '1 hour', date_trunc('hour', now()), '[)'), 'BOOKED')
-    `, [pastSlot, OTHER_TUTOR_ID]);
+    `, [pastSlot, NOW_TUTOR_ID]);
     const { rows: inserted } = await db.query(`
       INSERT INTO appointments (slot_id, tutor_id, student_id, time_range)
       SELECT id, tutor_id, $2, time_range FROM availability_slots WHERE id = $1

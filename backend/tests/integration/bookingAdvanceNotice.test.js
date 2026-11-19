@@ -3,7 +3,10 @@ const { randomUUID } = require('crypto');
 const db = require('../../src/config/db');
 const appointmentRepository = require('../../src/repositories/appointmentRepository');
 
-const TUTOR_ID = 'b0000000-0000-0000-0000-000000000001';
+// Own tutor per file, see tests/helpers/testStudent.js
+const { createTestTutor, removeTestTutor } = require('../helpers/testStudent');
+const TUTOR_ID = randomUUID();
+beforeAll(() => createTestTutor(TUTOR_ID));
 const { createTestStudent, removeTestStudent } = require('../helpers/testStudent');
 
 // Own student per file, see tests/helpers/testStudent.js
@@ -49,6 +52,7 @@ describe('Minimum Advance Booking Rule (BR-CONF-01)', () => {
     }
 
     await removeTestStudent(STUDENT_ID);
+    await removeTestTutor(TUTOR_ID);
     await db.pool.end();
   });
 
