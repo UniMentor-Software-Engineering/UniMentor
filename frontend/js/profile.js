@@ -2,7 +2,7 @@
 // catalog (step 2), and saves bio, meeting link and subjects (steps 3-7).
 // The backend enforces the rules; the checks here only give quicker feedback.
 import { api } from './api.js';
-import { currentUser, homeFor, logout, showToast } from './session.js';
+import { currentUser, homeFor, logout, renderNav, showToast } from './session.js';
 
 const MAX_BIO = 1000;
 const form = document.getElementById('profile-form');
@@ -106,6 +106,7 @@ async function init() {
     window.location.href = homeFor(user.role);
     return;
   }
+  renderNav(user);
   document.getElementById('user-name').textContent = `${user.first_name} ${user.last_name}`;
 
   const [profile, subjects] = await Promise.all([api.get('/tutors/profile'), api.get('/subjects')]);

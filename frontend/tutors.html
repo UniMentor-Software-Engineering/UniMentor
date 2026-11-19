@@ -6,16 +6,18 @@
     <title>Find Tutors · UniMentor</title>
     <link rel="stylesheet" href="css/base.css" />
     <link rel="stylesheet" href="css/tutors.css" />
+    <link rel="stylesheet" href="css/booking.css" />
   </head>
   <body>
     <header class="site-header">
       <div class="container">
         <a class="brand" href="index.html">UniMentor</a>
-        <nav class="header-actions">
+        <div class="header-actions">
+          <nav id="app-nav" class="app-nav" aria-label="Main"></nav>
           <span id="user-name" class="text-muted" hidden></span>
           <a id="sign-in-link" class="btn btn-secondary" href="login.html">Sign in</a>
           <button id="logout-button" type="button" class="btn btn-secondary" hidden>Sign out</button>
-        </nav>
+        </div>
       </div>
     </header>
 
@@ -43,6 +45,31 @@
         <button id="load-more" type="button" class="btn btn-secondary" hidden>Load more</button>
       </div>
     </main>
+
+    <!-- CU-08: booking confirmation. Filled by tutors.js. -->
+    <dialog id="booking-dialog" class="modal" aria-labelledby="booking-title">
+      <form id="booking-form" method="dialog" class="stack" novalidate>
+        <h2 id="booking-title">Book a session</h2>
+        <p id="booking-summary" class="notice notice-info"></p>
+
+        <fieldset class="choice-list" id="session-types">
+          <legend>Session type</legend>
+        </fieldset>
+
+        <div class="form-field">
+          <label for="inquiry">What do you need help with? <span class="text-muted">(optional)</span></label>
+          <textarea id="inquiry" name="inquiry" class="input" rows="4" maxlength="1000" placeholder="e.g. I don't understand how pipelining hazards are resolved"></textarea>
+          <p id="inquiry-counter" class="text-muted">0 / 1000</p>
+        </div>
+
+        <p id="booking-error" class="field-error" role="alert"></p>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" data-close>Back</button>
+          <button type="submit" class="btn btn-primary" id="confirm-booking">Confirm Booking</button>
+        </div>
+      </form>
+    </dialog>
 
     <script type="module" src="js/tutors.js"></script>
   </body>

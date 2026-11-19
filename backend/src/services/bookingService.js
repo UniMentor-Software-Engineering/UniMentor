@@ -4,20 +4,36 @@ const AppError = require('../utils/AppError');
 const { isUuid } = require('../utils/validators');
 const tutorRepository = require('../repositories/tutorRepository');
 
+// CU-08 step 2: session types the student can choose (migration 003)
+const SESSION_TYPES = ['QUICK_CHECK', 'STANDARD', 'DEEP_DIVE'];
+
 // Create a new appointment for a student
-async function createBooking(studentId, slotId, studentInquiry = null) {
+async function createBooking(studentId, slotId, studentInquiry = null, sessionType = 'STANDARD') {
 
   // Validate the student and slot IDs
   if (!isUuid(studentId) || !isUuid(slotId)) {
     throw new AppError(400, 'Invalid student or slot ID', 'INVALID_ID');
   }
 
+  // An empty inquiry is stored as NULL
+  if (typeof studentInquiry === 'string') {
+    studentInquiry = studentInquiry.trim() || null;
+  }
+
   // Validate the student inquiry
   if (
-    studentInquiry !== null &&
+    studentInquiry !== null && studentInquiry !== undefined &&
     (typeof studentInquiry !== 'string' || studentInquiry.length > 1000)
   ) {
     throw new AppError(400, 'Invalid student inquiry', 'INVALID_INQUIRY');
+  }
+
+  // Validate the session type
+  if (sessionType === undefined || sessionType === null) {
+    sessionType = 'STANDARD';
+  }
+  if (!SESSION_TYPES.includes(sessionType)) {
+    throw new AppError(400, 'Invalid session type', 'INVALID_SESSION_TYPE');
   }
 
   // Check whether the slot exists
@@ -29,20 +45,22 @@ async function createBooking(studentId, slotId, studentInquiry = null) {
 
   // Check whether the slot is available
   if (slot.status !== 'AVAILABLE') {
-    throw new AppError(409, 'Slot is not available', 'SLOT_UNAVAILABLE');
+    throw new AppError(409, 'This time slot has just been reserved by another student.', 'SLOT_UNAVAILABLE');
   }
 
   // Create the booking through the repository
+  // (it re-checks the slot, the 2-hour notice and the 3-booking quota under lock)
   return await appointmentRepository.createBooking(
     slotId,
     studentId,
-    studentInquiry
+    studentInquiry || null,
+    sessionType
   );
 }
 
 
  // CU-09: Cancel a confirmed tutoring appointment
-async function cancelAppointment(userId, appointmentId) {
+async function cancelAppointment(userId, appointmentId, reason = null) {
 
   // Validate the appointment ID
   if (!isUuid(appointmentId)) {
@@ -54,11 +72,57 @@ async function cancelAppointment(userId, appointmentId) {
     throw new AppError(400, 'Invalid user ID', 'INVALID_ID');
   }
 
+  // CU-09 step 3: optional cancellation reason (VARCHAR(500), migration 005)
+  if (reason !== null && reason !== undefined && typeof reason !== 'string') {
+    throw new AppError(400, 'Invalid cancellation reason', 'INVALID_REASON');
+  }
+  const cleanReason = typeof reason === 'string' ? reason.trim() : '';
+  if (cleanReason.length > 500) {
+    throw new AppError(400, 'The cancellation reason must be 500 characters or fewer', 'INVALID_REASON');
+  }
+
   // Delegate the cancellation to the repository
   // The repository checks authorization, status and cancellation timing
   return await appointmentRepository.cancelAppointment(
     appointmentId,
-    userId
+    userId,
+    cleanReason || null
+  );
+}
+
+
+ // CU-09 / CU-08 step 9: list the signed-in user's appointments for the dashboard
+async function listMyAppointments(userId, scope = 'upcoming') {
+  if (!isUuid(userId)) {
+    throw new AppError(400, 'Invalid user ID', 'INVALID_ID');
+  }
+  if (!['upcoming', 'past'].includes(scope)) {
+    throw new AppError(400, 'scope must be "upcoming" or "past"', 'INVALID_SCOPE');
+  }
+  return await appointmentRepository.findAppointmentsForUser(userId, scope);
+}
+
+
+ // CU-04 / CU-05: a tutor's own slots for the availability calendar (max. 31 days per request)
+const MAX_RANGE_MS = 31 * 24 * 60 * 60 * 1000;
+
+async function listMySlots(tutorId, from, to) {
+  if (!isUuid(tutorId)) {
+    throw new AppError(400, 'Invalid tutor ID', 'INVALID_ID');
+  }
+  const start = new Date(from);
+  const end = new Date(to);
+  if (
+    typeof from !== 'string' || typeof to !== 'string' ||
+    Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) ||
+    start >= end || end.getTime() - start.getTime() > MAX_RANGE_MS
+  ) {
+    throw new AppError(400, 'from and to must be valid dates, at most 31 days apart', 'INVALID_INTERVAL');
+  }
+  return await appointmentRepository.findSlotsByTutorInRange(
+    tutorId,
+    start.toISOString(),
+    end.toISOString()
   );
 }
 
@@ -179,5 +243,8 @@ module.exports = {
   splitIntoHourlySlots,
   publishAvailability,
   blockAvailabilitySlot,
-  getTutorAvailability
+  getTutorAvailability,
+  listMyAppointments,
+  listMySlots,
+  SESSION_TYPES
 };

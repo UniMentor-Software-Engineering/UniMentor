@@ -5,7 +5,11 @@ const { randomUUID } = require('crypto');
 
 const TUTOR_ID = 'b0000000-0000-0000-0000-000000000001';
 const OTHER_TUTOR_ID = 'b0000000-0000-0000-0000-000000000002';
-const STUDENT_ID = 'c0000000-0000-0000-0000-000000000001';
+const { createTestStudent, removeTestStudent } = require('../helpers/testStudent');
+
+// Own student per file, see tests/helpers/testStudent.js
+const STUDENT_ID = randomUUID();
+beforeAll(() => createTestStudent(STUDENT_ID));
 
 describe('Availability Blocking Integration Tests (CU-05)', () => {
   const createdSlotIds = [];
@@ -42,6 +46,7 @@ describe('Availability Blocking Integration Tests (CU-05)', () => {
       await db.query('DELETE FROM availability_slots WHERE id = $1', [slotId]);
     }
 
+    await removeTestStudent(STUDENT_ID);
     await db.pool.end();
   });
 

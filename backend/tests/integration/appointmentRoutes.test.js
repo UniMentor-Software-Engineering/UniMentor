@@ -90,7 +90,8 @@ describe('Appointment Routes Integration Tests', () => {
     expect(bookingService.createBooking).toHaveBeenCalledWith(
       STUDENT_ID,
       SLOT_ID,
-      bookingData.studentInquiry
+      bookingData.studentInquiry,
+      undefined
     );
   });
 
@@ -144,7 +145,8 @@ describe('Appointment Cancellation Authorization Tests', () => {
     expect(res.status).toBe(403);
     expect(bookingService.cancelAppointment).toHaveBeenCalledWith(
       STUDENT_ID,
-      APPOINTMENT_ID
+      APPOINTMENT_ID,
+      undefined
     );
   });
 
@@ -321,3 +323,79 @@ describe('Availability Slot Blocking Tests (CU-05)', () => {
   });
 });
 
+
+describe('Dashboard and calendar listings', () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('GET /appointments/me requires a session', async () => {
+    const res = await request(app).get('/api/appointments/me');
+
+    expect(res.status).toBe(401);
+    expect(bookingService.listMyAppointments).not.toHaveBeenCalled();
+  });
+
+  it('GET /appointments/me is not available to admins', async () => {
+    const res = await request(app)
+      .get('/api/appointments/me')
+      .set('Cookie', cookieFor('ADMIN'));
+
+    expect(res.status).toBe(403);
+  });
+
+  it('GET /appointments/me returns the user appointments for the scope', async () => {
+    bookingService.listMyAppointments.mockResolvedValue([{ id: 'a1' }]);
+
+    const res = await request(app)
+      .get('/api/appointments/me?scope=past')
+      .set('Cookie', cookieFor('STUDENT'));
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([{ id: 'a1' }]);
+    expect(bookingService.listMyAppointments).toHaveBeenCalledWith(STUDENT_ID, 'past');
+  });
+
+  it('GET /appointments/availability/me is only for tutors', async () => {
+    const res = await request(app)
+      .get('/api/appointments/availability/me?from=2030-01-01&to=2030-01-08')
+      .set('Cookie', cookieFor('STUDENT'));
+
+    expect(res.status).toBe(403);
+    expect(bookingService.listMySlots).not.toHaveBeenCalled();
+  });
+
+  it('GET /appointments/availability/me returns the tutor slots', async () => {
+    bookingService.listMySlots.mockResolvedValue([]);
+
+    const res = await request(app)
+      .get('/api/appointments/availability/me?from=2030-01-01&to=2030-01-08')
+      .set('Cookie', cookieFor('TUTOR'));
+
+    expect(res.status).toBe(200);
+    expect(bookingService.listMySlots)
+      .toHaveBeenCalledWith(STUDENT_ID, '2030-01-01', '2030-01-08');
+  });
+
+  it('PATCH cancel forwards the optional reason and warns on a late cancellation', async () => {
+    bookingService.cancelAppointment.mockResolvedValue({
+      id: 'a1',
+      status: 'CANCELLED',
+      is_late_cancellation: true
+    });
+
+    const res = await request(app)
+      .patch('/api/appointments/f0000000-0000-0000-0000-000000000001/cancel')
+      .set('X-Requested-With', 'XMLHttpRequest')
+      .set('Cookie', cookieFor('STUDENT'))
+      .send({ reason: 'Exam moved' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.message).toMatch(/late cancellation/);
+    expect(bookingService.cancelAppointment).toHaveBeenCalledWith(
+      STUDENT_ID,
+      'f0000000-0000-0000-0000-000000000001',
+      'Exam moved'
+    );
+  });
+});
