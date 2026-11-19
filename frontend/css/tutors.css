@@ -24,7 +24,7 @@
   gap: var(--space-3);
 }
 
-.tutor-card h3 {
+.tutor-card h2 {
   font-size: var(--font-size-lg);
 }
 

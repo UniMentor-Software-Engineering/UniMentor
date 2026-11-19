@@ -23,11 +23,18 @@
   --color-warning-soft: #fef3c7;
   --color-danger: #dc2626;
   --color-danger-soft: #fee2e2;
+  /* Text on the soft backgrounds and white text on solid fills: these darker shades
+     reach the 4.5:1 contrast of WCAG 1.4.3 (the base shades above only reach 3-4:1). */
+  --color-success-strong: #15803d;
+  --color-success-text: #166534;
+  --color-warning-text: #92400e;
+  --color-danger-text: #b91c1c;
 
   /* Calendar slot states (CU-04, CU-07: available slots are shown in green) */
-  --slot-available: var(--color-success);
+  /* White text on each fill keeps at least 4.5:1 */
+  --slot-available: var(--color-success-strong);
   --slot-booked: var(--color-primary);
-  --slot-blocked: #94a3b8;
+  --slot-blocked: #64748b;
 
   /* Typography */
   --font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -152,6 +159,19 @@ a {
   text-decoration: none;
 }
 
+/* On narrow screens the header links wrap instead of overflowing the page. */
+@media (max-width: 640px) {
+  .site-header .container {
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    padding-block: var(--space-2);
+  }
+
+  .header-actions {
+    flex-wrap: wrap;
+  }
+}
+
 main.container {
   padding-block: var(--space-8);
 }
@@ -244,17 +264,17 @@ main.container {
 
 .badge-success {
   background: var(--color-success-soft);
-  color: var(--color-success);
+  color: var(--color-success-text);
 }
 
 .badge-warning {
   background: var(--color-warning-soft);
-  color: var(--color-warning);
+  color: var(--color-warning-text);
 }
 
 .badge-danger {
   background: var(--color-danger-soft);
-  color: var(--color-danger);
+  color: var(--color-danger-text);
 }
 
 /* Toast notifications (e.g. "Profile successfully updated.", CU-03) */
@@ -271,7 +291,7 @@ main.container {
 }
 
 .toast-success {
-  background: var(--color-success);
+  background: var(--color-success-strong);
 }
 
 .toast-error {
