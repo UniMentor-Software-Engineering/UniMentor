@@ -63,7 +63,7 @@ function renderSlots(tutor, slots, panel) {
 
   const groups = [...byDay.values()].map((daySlots) => {
     const group = el('section', undefined, 'day-group');
-    group.append(el('h4', dayFormat.format(new Date(daySlots[0].start_time))));
+    group.append(el('h3', dayFormat.format(new Date(daySlots[0].start_time))));
     const list = el('ul', undefined, 'slot-list');
     daySlots.forEach((slot) => {
       const item = el('li');
@@ -98,7 +98,7 @@ async function loadAvailability(tutor, panel) {
 
 function tutorCard(tutor) {
   const card = el('article', undefined, 'card tutor-card');
-  card.append(el('h3', `${tutor.first_name} ${tutor.last_name}`));
+  card.append(el('h2', `${tutor.first_name} ${tutor.last_name}`));
 
   const subjects = el('ul', undefined, 'subject-list');
   tutor.subjects.forEach((subject) => {

@@ -14,17 +14,7 @@
   color: var(--color-primary-hover);
 }
 
-@media (max-width: 640px) {
-  .site-header .container {
-    flex-wrap: wrap;
-    gap: var(--space-2);
-    padding-block: var(--space-2);
-  }
-
-  .header-actions {
-    flex-wrap: wrap;
-  }
-}
+/* The narrow-screen header rules live in base.css, so every page gets them. */
 
 /* ---------- Modal dialogs (booking, cancel, delete slot) ---------- */
 .modal {
@@ -100,7 +90,8 @@
 
 .choice small {
   display: block;
-  color: var(--color-text-muted);
+  /* Darker than --color-text-muted: it also sits on the blue background of the checked choice */
+  color: #475569;
 }
 
 /* ---------- Tutor calendar inside a search card (CU-07) ---------- */
@@ -113,7 +104,7 @@
   border-top: 1px solid var(--color-border);
 }
 
-.day-group h4 {
+.day-group h3 {
   margin-bottom: var(--space-2);
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
@@ -186,7 +177,7 @@ button.slot-chip:hover {
   gap: var(--space-2);
 }
 
-.appointment-head h3 {
+.appointment-head h2 {
   font-size: var(--font-size-lg);
 }
 
@@ -255,6 +246,7 @@ button.slot-chip:hover {
 }
 
 .week-scroll {
+  position: relative; /* keeps absolutely positioned children inside the scroller */
   overflow-x: auto;
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
@@ -280,6 +272,15 @@ button.slot-chip:hover {
   padding: var(--space-2) var(--space-1);
   background: var(--color-bg);
   font-weight: 600;
+}
+
+/* The time column stays visible while the week scrolls sideways on a phone */
+.week-grid tbody th,
+.week-grid thead th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--color-bg);
 }
 
 .week-grid tbody th {
@@ -314,10 +315,14 @@ button.slot-chip:hover {
   background: repeating-linear-gradient(45deg, var(--color-bg), var(--color-bg) 4px, #eef2f6 4px, #eef2f6 8px);
 }
 
+/* Not a solid fill, so it cannot be confused with a booked (solid blue) slot */
 .cell-selected,
 .cell-selected:hover:not(:disabled) {
-  background: var(--color-primary);
-  color: #fff;
+  background: var(--color-primary-soft);
+  color: var(--color-primary-hover);
+  font-weight: 600;
+  outline: 2px dashed var(--color-primary);
+  outline-offset: -3px;
 }
 
 .cell-available {
@@ -352,7 +357,8 @@ button.slot-chip:hover {
 .legend-available { --legend-color: var(--slot-available); }
 .legend-booked { --legend-color: var(--slot-booked); }
 .legend-blocked { --legend-color: var(--slot-blocked); }
-.legend-selected { --legend-color: var(--color-primary); }
+.legend-selected { --legend-color: var(--color-primary-soft); }
+.legend-selected::before { outline: 2px dashed var(--color-primary); outline-offset: -2px; }
 
 .week-grid thead th.today {
   color: var(--color-primary);
@@ -370,7 +376,7 @@ button.slot-chip:hover {
 }
 
 .rating-stars {
-  color: var(--color-warning);
+  color: #b45309;
   letter-spacing: 0.1em;
 }
 
@@ -386,11 +392,10 @@ button.slot-chip:hover {
   font-weight: 600;
 }
 
-/* Five radio buttons shown as stars. Row reversed so that ":hover ~" and ":checked ~"
-   light up the hovered/checked star and every star to its left. */
+/* Five radio buttons shown as stars, in natural DOM order (1..5) so that arrow keys move
+   in the same direction as they look. Every star up to the hovered or checked one lights up. */
 .stars {
   display: inline-flex;
-  flex-direction: row-reverse;
   gap: var(--space-1);
 }
 
@@ -398,14 +403,20 @@ button.slot-chip:hover {
   cursor: pointer;
   font-size: 2rem;
   line-height: 1;
-  color: var(--color-border);
+  color: #64748b; /* 4.8:1 on white (WCAG 1.4.11 needs 3:1) */
 }
 
-.star:hover,
-.star:hover ~ .star,
-.star:has(input:checked),
-.star:has(input:checked) ~ .star {
-  color: var(--color-warning);
+.stars:has(input[value="1"]:checked) .star:nth-child(-n+1),
+.stars:has(input[value="2"]:checked) .star:nth-child(-n+2),
+.stars:has(input[value="3"]:checked) .star:nth-child(-n+3),
+.stars:has(input[value="4"]:checked) .star:nth-child(-n+4),
+.stars:has(input[value="5"]:checked) .star:nth-child(-n+5),
+.stars:has(.star:nth-child(1):hover) .star:nth-child(-n+1),
+.stars:has(.star:nth-child(2):hover) .star:nth-child(-n+2),
+.stars:has(.star:nth-child(3):hover) .star:nth-child(-n+3),
+.stars:has(.star:nth-child(4):hover) .star:nth-child(-n+4),
+.stars:has(.star:nth-child(5):hover) .star:nth-child(-n+5) {
+  color: #b45309;
 }
 
 .star:has(input:focus-visible) {

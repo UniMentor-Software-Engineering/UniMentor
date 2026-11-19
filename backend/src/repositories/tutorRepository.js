@@ -46,8 +46,10 @@ async function findTutors({ subjectId, search, limit = 10, offset = 0 } = {}) {
         SELECT lower(av.time_range)
         FROM availability_slots av
         WHERE av.tutor_id = u.id 
-          AND av.status = 'AVAILABLE' 
-          AND lower(av.time_range) > CURRENT_TIMESTAMP
+          AND av.status = 'AVAILABLE'
+          -- Same rule as the calendar (CU-07, BR-CONF-01): slots within 2 hours cannot be booked,
+          -- so they are not shown as the next free slot either.
+          AND lower(av.time_range) > CURRENT_TIMESTAMP + INTERVAL '2 hours'
         ORDER BY lower(av.time_range) ASC
         LIMIT 1
       ) AS next_available_slot

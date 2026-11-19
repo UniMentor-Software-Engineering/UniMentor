@@ -76,7 +76,7 @@ function appointmentCard(appointment, list) {
   const card = el('article', undefined, 'card appointment-card');
 
   const head = el('div', undefined, 'appointment-head');
-  head.append(el('h3', sessionLabel(appointment.start_time, appointment.end_time)), statusBadge(appointment));
+  head.append(el('h2', sessionLabel(appointment.start_time, appointment.end_time)), statusBadge(appointment));
   card.append(head);
 
   const meta = el('div', undefined, 'appointment-meta');
@@ -161,6 +161,22 @@ function selectTab(name) {
 tabs.upcoming.addEventListener('click', () => selectTab('upcoming'));
 tabs.history.addEventListener('click', () => selectTab('history'));
 
+// WAI-ARIA tabs pattern: the inactive tab has tabindex=-1, so arrow keys (and Home/End)
+// are the way to reach it from the keyboard.
+document.querySelector('[role="tablist"]').addEventListener('keydown', (event) => {
+  const order = ['upcoming', 'history'];
+  const current = order.findIndex((name) => tabs[name].getAttribute('aria-selected') === 'true');
+  let next = null;
+  if (event.key === 'ArrowRight') next = (current + 1) % order.length;
+  else if (event.key === 'ArrowLeft') next = (current - 1 + order.length) % order.length;
+  else if (event.key === 'Home') next = 0;
+  else if (event.key === 'End') next = order.length - 1;
+  if (next === null) return;
+  event.preventDefault();
+  selectTab(order[next]);
+  tabs[order[next]].focus();
+});
+
 // ---------- CU-09: cancel ----------
 
 const cancelDialog = document.getElementById('cancel-dialog');
@@ -213,8 +229,7 @@ let toReview = null;
 
 function renderStars() {
   const container = document.getElementById('stars');
-  // DOM order 5..1: the CSS row-reverse shows them 1..5 from left to right.
-  container.replaceChildren(...[5, 4, 3, 2, 1].map((value) => {
+  container.replaceChildren(...[1, 2, 3, 4, 5].map((value) => {
     const label = el('label', undefined, 'star');
     const radio = document.createElement('input');
     radio.type = 'radio';

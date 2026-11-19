@@ -242,6 +242,15 @@ deleteForm.addEventListener('submit', async (event) => {
 dialog.querySelector('[data-close]').addEventListener('click', () => dialog.close());
 dialog.addEventListener('close', () => { state.toDelete = null; });
 
+// On a phone only two or three days fit: start the scroller at today's column, not Monday.
+function scrollToToday() {
+  const scroller = document.querySelector('.week-scroll');
+  const today = grid.querySelector('thead th.today');
+  const timeColumn = grid.querySelector('thead th');
+  if (!scroller || !today || scroller.scrollWidth <= scroller.clientWidth) return;
+  scroller.scrollLeft = today.offsetLeft - timeColumn.offsetWidth;
+}
+
 // ---------- Start ----------
 
 async function init() {
@@ -253,7 +262,8 @@ async function init() {
   renderNav(user);
   document.getElementById('user-name').textContent = `${user.first_name} ${user.last_name}`;
   document.getElementById('logout-button').addEventListener('click', logout);
-  loadWeek();
+  await loadWeek();
+  scrollToToday();
 }
 
 init().catch((err) => showToast(err.message, 'error'));

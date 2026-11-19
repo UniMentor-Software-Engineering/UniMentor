@@ -80,6 +80,9 @@
 }
 
 .table-wrapper {
+  /* position: relative keeps the visually hidden header text inside the scroller;
+     without it the page grew to 494px on a 375px phone. */
+  position: relative;
   overflow-x: auto;
 }
 
