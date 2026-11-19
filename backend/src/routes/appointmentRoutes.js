@@ -5,6 +5,22 @@ const router = express.Router();
 const appointmentController = require('../controllers/appointmentController');
 const { verifyJWT, requireRole } = require('../middlewares/authMiddleware');
 
+// CU-09 / CU-08 step 9: list the signed-in user's own appointments
+router.get(
+  '/me',
+  verifyJWT,
+  requireRole('STUDENT', 'TUTOR'),
+  appointmentController.listMyAppointments
+);
+
+// CU-04 / CU-05: list the signed-in tutor's own slots (calendar view)
+router.get(
+  '/availability/me',
+  verifyJWT,
+  requireRole('TUTOR'),
+  appointmentController.listMySlots
+);
+
 // CU-08: Allow authenticated students to book an available slot
 router.post(
   '/',

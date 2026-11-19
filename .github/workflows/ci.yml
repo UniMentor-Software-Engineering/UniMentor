@@ -8,7 +8,7 @@ on:
   pull_request:
 
 jobs:
-    backend:
+  backend:
     name: Backend lint and tests
     runs-on: ubuntu-latest
 
@@ -49,8 +49,10 @@ jobs:
       - name: Lint (ESLint)
         run: npm run lint
 
-            - name: Prepare test database
-        run: npm run db:migrate
+      # The integration tests use the seed tutors (b0000000-...), so the database is
+      # migrated and seeded before Jest runs.
+      - name: Prepare test database
+        run: npm run db:migrate && npm run db:seed
         env:
           DATABASE_URL: postgres://unimentor:unimentor@localhost:5432/unimentor
 

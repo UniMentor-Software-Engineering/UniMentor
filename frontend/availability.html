@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>My Availability · UniMentor</title>
+    <link rel="stylesheet" href="css/base.css" />
+    <link rel="stylesheet" href="css/booking.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="brand" href="index.html">UniMentor</a>
+        <div class="header-actions">
+          <nav id="app-nav" class="app-nav" aria-label="Main"></nav>
+          <span id="user-name" class="text-muted"></span>
+          <button id="logout-button" type="button" class="btn btn-secondary">Sign out</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="container stack">
+      <h1>My Availability</h1>
+      <p class="text-muted">
+        Click free hours to select them, then press <strong>Publish Slots</strong>. Each hour becomes a
+        60-minute session students can book. Click a green slot to remove it.
+      </p>
+
+      <p id="eligibility" class="notice notice-warning" hidden>
+        You need an active profile with at least one subject before publishing slots.
+        <a href="profile.html">Complete your profile</a>.
+      </p>
+
+      <div class="week-toolbar">
+        <h2 id="week-title" aria-live="polite"></h2>
+        <div class="week-nav">
+          <button id="prev-week" type="button" class="btn btn-secondary" aria-label="Previous week">←</button>
+          <button id="this-week" type="button" class="btn btn-secondary">This week</button>
+          <button id="next-week" type="button" class="btn btn-secondary" aria-label="Next week">→</button>
+        </div>
+      </div>
+
+      <ul class="legend">
+        <li class="legend-available">Available</li>
+        <li class="legend-booked">Booked</li>
+        <li class="legend-blocked">Blocked</li>
+        <li class="legend-selected">Selected (not published yet)</li>
+      </ul>
+
+      <div class="week-scroll">
+        <table class="week-grid" id="week-grid" aria-describedby="week-title"></table>
+      </div>
+
+      <div class="publish-bar card">
+        <p id="selection-status" class="text-muted" aria-live="polite">No hours selected.</p>
+        <div class="modal-actions">
+          <button id="clear-selection" type="button" class="btn btn-secondary" disabled>Clear</button>
+          <button id="publish" type="button" class="btn btn-primary" disabled>Publish Slots</button>
+        </div>
+      </div>
+    </main>
+
+    <!-- CU-05 step 2: confirm before removing a slot. -->
+    <dialog id="delete-dialog" class="modal" aria-labelledby="delete-title">
+      <form id="delete-form" method="dialog" class="stack">
+        <h2 id="delete-title">Delete slot</h2>
+        <p id="delete-summary"></p>
+        <p class="text-muted">Students will no longer be able to book it.</p>
+        <p id="delete-error" class="field-error" role="alert"></p>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" data-close>Keep slot</button>
+          <button type="submit" class="btn btn-danger" id="confirm-delete">Delete Slot</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script type="module" src="js/availability.js"></script>
+  </body>
+</html>

@@ -3,7 +3,7 @@
 import { api } from './api.js';
 
 // Role-specific landing page after login (CU-02, step 6).
-// TODO(P5): point STUDENT and TUTOR to the CU-11 dashboard when it exists.
+// TODO(P5): point STUDENT and TUTOR to the CU-11 dashboard (appointments.html is its base).
 const HOME_BY_ROLE = {
   ADMIN: 'admin.html',
   TUTOR: 'profile.html', // CU-03
@@ -35,6 +35,30 @@ export async function logout() {
   } finally {
     window.location.href = 'login.html';
   }
+}
+
+// Header links for each role (P4 pages included). The admin keeps its own panel.
+const NAV_BY_ROLE = {
+  STUDENT: [['tutors.html', 'Find tutors'], ['appointments.html', 'My sessions']],
+  TUTOR: [['appointments.html', 'My sessions'], ['availability.html', 'Availability'], ['profile.html', 'Profile']],
+  ADMIN: [['admin.html', 'Admin panel']],
+};
+
+// Fills <nav id="app-nav"> with the links of the signed-in user's role and marks the
+// current page. Uses textContent only (NFR-02).
+export function renderNav(user) {
+  const nav = document.getElementById('app-nav');
+  if (!nav) return;
+  const current = window.location.pathname.split('/').pop() || 'index.html';
+  const links = (user && NAV_BY_ROLE[user.role]) || [];
+  nav.replaceChildren(...links.map(([href, label]) => {
+    const link = document.createElement('a');
+    link.className = 'btn btn-secondary';
+    link.href = href;
+    link.textContent = label;
+    if (href === current) link.setAttribute('aria-current', 'page');
+    return link;
+  }));
 }
 
 // Shows a toast (base.css) for a few seconds. Text only, never HTML (NFR-02, XSS).

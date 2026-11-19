@@ -1,0 +1,359 @@
+/* P4 reservations: tutor calendar on the search page (CU-07, CU-08), "My sessions" (CU-09)
+   and the tutor's availability grid (CU-04, CU-05). Reuses the tokens of base.css. */
+
+/* ---------- Header navigation by role ---------- */
+.app-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.app-nav a[aria-current="page"] {
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary-soft);
+  color: var(--color-primary-hover);
+}
+
+@media (max-width: 640px) {
+  .site-header .container {
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    padding-block: var(--space-2);
+  }
+
+  .header-actions {
+    flex-wrap: wrap;
+  }
+}
+
+/* ---------- Modal dialogs (booking, cancel, delete slot) ---------- */
+.modal {
+  width: min(32rem, calc(100vw - 2rem));
+  padding: var(--space-6);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: 0 20px 40px rgb(15 23 42 / 0.2);
+  color: var(--color-text);
+  background: var(--color-surface);
+}
+
+.modal::backdrop {
+  background: rgb(15 23 42 / 0.45);
+}
+
+.modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.notice {
+  padding: var(--space-3);
+  border-radius: var(--radius);
+  font-size: var(--font-size-sm);
+}
+
+.notice-warning {
+  background: var(--color-warning-soft);
+  color: #92400e;
+}
+
+.notice-info {
+  background: var(--color-primary-soft);
+  color: var(--color-primary-hover);
+}
+
+/* ---------- Session type choice (CU-08 step 2) ---------- */
+.choice-list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.choice-list legend {
+  margin-bottom: var(--space-2);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.choice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.choice:has(input:checked) {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
+.choice input {
+  margin-top: 0.3rem;
+}
+
+.choice small {
+  display: block;
+  color: var(--color-text-muted);
+}
+
+/* ---------- Tutor calendar inside a search card (CU-07) ---------- */
+.availability-panel {
+  display: grid;
+  gap: var(--space-3);
+  max-height: 22rem;
+  overflow-y: auto;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+}
+
+.day-group h4 {
+  margin-bottom: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.slot-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: 0;
+  list-style: none;
+}
+
+.slot-chip {
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--slot-available);
+  border-radius: 999px;
+  background: var(--color-success-soft);
+  color: #166534;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+button.slot-chip {
+  cursor: pointer;
+}
+
+button.slot-chip:hover {
+  background: var(--slot-available);
+  color: #fff;
+}
+
+/* ---------- My sessions (CU-09) ---------- */
+.tabs {
+  display: flex;
+  gap: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tab {
+  padding: var(--space-2) var(--space-4);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.tab[aria-selected="true"] {
+  border-bottom-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.appointment-list {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.appointment-card {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.appointment-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.appointment-head h3 {
+  font-size: var(--font-size-lg);
+}
+
+.appointment-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.appointment-inquiry {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  overflow-wrap: anywhere;
+}
+
+.appointment-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.badge-muted {
+  background: var(--color-border);
+  color: var(--color-text-muted);
+}
+
+.badge-info {
+  background: var(--color-primary-soft);
+  color: var(--color-primary-hover);
+}
+
+/* ---------- Tutor weekly availability grid (CU-04, CU-05) ---------- */
+.week-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.week-toolbar .week-nav {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: 0;
+  list-style: none;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.legend li::before {
+  content: "";
+  display: inline-block;
+  width: 0.8rem;
+  height: 0.8rem;
+  margin-right: var(--space-1);
+  border-radius: 3px;
+  vertical-align: -0.1rem;
+  background: var(--legend-color);
+}
+
+.week-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.week-grid {
+  width: 100%;
+  min-width: 46rem;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: var(--font-size-sm);
+}
+
+.week-grid th,
+.week-grid td {
+  border: 1px solid var(--color-border);
+  padding: 0;
+  text-align: center;
+}
+
+.week-grid thead th {
+  padding: var(--space-2) var(--space-1);
+  background: var(--color-bg);
+  font-weight: 600;
+}
+
+.week-grid tbody th {
+  width: 4rem;
+  padding: 0 var(--space-2);
+  color: var(--color-text-muted);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.cell {
+  display: block;
+  width: 100%;
+  min-height: 2.25rem;
+  padding: var(--space-1);
+  border: 0;
+  background: transparent;
+  font-size: 0.75rem;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.cell:hover:not(:disabled) {
+  background: var(--color-primary-soft);
+}
+
+.cell:disabled {
+  cursor: default;
+}
+
+.cell-past {
+  background: repeating-linear-gradient(45deg, var(--color-bg), var(--color-bg) 4px, #eef2f6 4px, #eef2f6 8px);
+}
+
+.cell-selected,
+.cell-selected:hover:not(:disabled) {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.cell-available {
+  background: var(--slot-available);
+  color: #fff;
+  font-weight: 600;
+}
+
+.cell-available:hover:not(:disabled) {
+  background: #15803d;
+}
+
+.cell-booked {
+  background: var(--slot-booked);
+  color: #fff;
+}
+
+.cell-unavailable {
+  background: var(--slot-blocked);
+  color: #fff;
+}
+
+.publish-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+/* Legend colours as classes: the CSP (style-src 'self') blocks inline style attributes. */
+.legend-available { --legend-color: var(--slot-available); }
+.legend-booked { --legend-color: var(--slot-booked); }
+.legend-blocked { --legend-color: var(--slot-blocked); }
+.legend-selected { --legend-color: var(--color-primary); }
+
+.week-grid thead th.today {
+  color: var(--color-primary);
+}

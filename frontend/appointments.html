@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>My Sessions · UniMentor</title>
+    <link rel="stylesheet" href="css/base.css" />
+    <link rel="stylesheet" href="css/booking.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="brand" href="index.html">UniMentor</a>
+        <div class="header-actions">
+          <nav id="app-nav" class="app-nav" aria-label="Main"></nav>
+          <span id="user-name" class="text-muted"></span>
+          <button id="logout-button" type="button" class="btn btn-secondary">Sign out</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="container stack">
+      <h1>My Sessions</h1>
+      <p class="text-muted">
+        Cancel at least 4 hours before a session to avoid a late-cancellation record.
+      </p>
+
+      <div class="tabs" role="tablist" aria-label="Sessions">
+        <button id="tab-upcoming" class="tab" type="button" role="tab" aria-selected="true" aria-controls="list-upcoming">Upcoming Sessions</button>
+        <button id="tab-past" class="tab" type="button" role="tab" aria-selected="false" aria-controls="list-past">Past &amp; cancelled</button>
+      </div>
+
+      <section id="list-upcoming" class="appointment-list" role="tabpanel" aria-labelledby="tab-upcoming" aria-live="polite"></section>
+      <section id="list-past" class="appointment-list" role="tabpanel" aria-labelledby="tab-past" hidden></section>
+    </main>
+
+    <!-- CU-09 steps 2-3: confirm the cancellation, with an optional reason. -->
+    <dialog id="cancel-dialog" class="modal" aria-labelledby="cancel-title">
+      <form id="cancel-form" method="dialog" class="stack" novalidate>
+        <h2 id="cancel-title">Cancel session</h2>
+        <p id="cancel-summary"></p>
+        <p id="cancel-late-warning" class="notice notice-warning" hidden>
+          This session starts in less than 4 hours. Cancelling now is a late cancellation:
+          it will be recorded on your profile and the time slot will stay closed.
+        </p>
+        <div class="form-field">
+          <label for="cancel-reason">Reason <span class="text-muted">(optional)</span></label>
+          <textarea id="cancel-reason" name="reason" class="input" rows="3" maxlength="500"></textarea>
+        </div>
+        <p id="cancel-error" class="field-error" role="alert"></p>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" data-close>Keep session</button>
+          <button type="submit" class="btn btn-danger" id="confirm-cancel">Cancel Session</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script type="module" src="js/appointments.js"></script>
+  </body>
+</html>
