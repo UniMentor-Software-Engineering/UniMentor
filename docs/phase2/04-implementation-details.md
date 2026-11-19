@@ -631,7 +631,7 @@ Its implementation follows the project's layered architecture and database consi
 
 **Type:** structural (Adapter) and behavioral (Strategy), both GoF. **Use cases:** CU-01 (welcome email), CU-08 (confirmation), CU-09 and CU-13 (cancellation notices) and CU-10 (reminders).
 
-**Status:** design. `NotificationService` is not implemented yet; the code below shows the structure that will be built to meet ADR 6. The points that will call it are already marked in `authService.js` and `adminService.js`.
+**Status:** implemented in `backend/src/notifications/` and `backend/src/jobs/reminderScheduler.js`.
 
 #### Problem
 
@@ -644,17 +644,23 @@ Two patterns solve different parts of the problem. **Adapter** converts the inte
 | GoF role | UniMentor element |
 |---|---|
 | **Target / Strategy interface** | An email provider: an object with `send({ to, subject, text, html })` |
-| **Adapter / ConcreteStrategy** | `SendGridProvider` (wraps `@sendgrid/mail`) |
+| **Adapter / ConcreteStrategy** | `SendGridProvider` (translates our message into a SendGrid v3 Mail Send request) |
 | **ConcreteStrategy** | `ConsoleProvider` (logs the message, for development and tests) |
-| **Adaptee** | The SendGrid SDK |
+| **Adaptee** | The SendGrid v3 HTTP API |
 | **Context / Client** | `NotificationService`, used by the services and by the CU-10 scheduler |
 
 ```js
-// SendGridProvider.js: the only module that knows the SDK
+// SendGridProvider.js: the only module that knows SendGrid
 class SendGridProvider {
-  constructor(client, from) { this.client = client; this.from = from; }
   async send({ to, subject, text, html }) {
-    await this.client.send({ to, from: this.from, subject, text, html });
+    const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${this.apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ personalizations: [{ to: [{ email: to }] }], from: this.from, subject,
+        content: [{ type: 'text/plain', value: text }, { type: 'text/html', value: html }] }),
+      signal: AbortSignal.timeout(10000),
+    });
+    if (response.status !== 202) throw new Error(`SendGrid rejected the message (${response.status})`);
   }
 }
 
@@ -671,7 +677,9 @@ class NotificationService {
 }
 ```
 
-Failures are handled according to each use case, using the same provider. After a `COMMIT`, a failed confirmation is logged and does not affect the response, because the booking is already valid. In CU-10 the scheduler sets `reminder_sent = TRUE` only after the provider accepts the message (the sequence diagram of Section 3.2.2), so a failure leaves the appointment queued for the next 10-minute cycle.
+The adapter calls the HTTP API with the built-in `fetch` instead of the `@sendgrid/mail` SDK: the request is a single POST, and one dependency less keeps `npm audit` (NFR-02) clean. The provider is chosen once in `notifications/index.js`: `SendGridProvider` when `SENDGRID_API_KEY` is set, `ConsoleProvider` otherwise.
+
+Failures are handled according to each use case, using the same provider. After a `COMMIT`, the services call `notifyInBackground()`: the response does not wait for the email, and a failed confirmation is logged without affecting it, because the booking is already valid. In CU-10 the scheduler, which runs every 10 minutes inside the API process, sets `reminder_sent = TRUE` only after the provider accepts both messages with HTTP 202 (the sequence diagram of Section 3.2.2), so a failure leaves the appointment queued for the next cycle.
 
 #### Consequences
 
@@ -687,6 +695,7 @@ Failures are handled according to each use case, using the same provider. After 
 - **More classes** for what currently is a single provider. We accept them because ADR 6 explicitly requires the boundary, and the fake provider pays for itself in the tests.
 - **The interface is a lowest common denominator.** Provider-specific features such as SendGrid's dynamic templates are not exposed; our templates are rendered in our own code.
 - **Asynchronous failures are less visible.** An email lost after the `COMMIT` does not reach the user as an error, so failures must be logged.
+- **The scheduler lives in the API process.** No extra worker is needed, but Render's free instance sleeps when idle and no reminder cycle runs while it sleeps. If one of the two reminder messages fails, both are sent again in the next cycle.
 
 #### Related decisions
 

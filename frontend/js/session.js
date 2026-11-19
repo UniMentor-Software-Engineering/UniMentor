@@ -2,12 +2,12 @@
 // JavaScript cannot read (ADR 4), so the session is known through GET /auth/me.
 import { api } from './api.js';
 
-// Role-specific landing page after login (CU-02, step 6).
-// TODO(P5): point STUDENT and TUTOR to the CU-11 dashboard (appointments.html is its base).
+// Role-specific landing page after login (CU-02, step 6): students and tutors land on
+// their CU-11 dashboard, the admin on the admin panel.
 const HOME_BY_ROLE = {
   ADMIN: 'admin.html',
-  TUTOR: 'profile.html', // CU-03
-  STUDENT: 'tutors.html', // CU-06
+  TUTOR: 'dashboard.html', // CU-11
+  STUDENT: 'dashboard.html', // CU-11
 };
 
 export function homeFor(role) {
@@ -39,8 +39,8 @@ export async function logout() {
 
 // Header links for each role (P4 pages included). The admin keeps its own panel.
 const NAV_BY_ROLE = {
-  STUDENT: [['tutors.html', 'Find tutors'], ['appointments.html', 'My sessions']],
-  TUTOR: [['appointments.html', 'My sessions'], ['availability.html', 'Availability'], ['profile.html', 'Profile']],
+  STUDENT: [['tutors.html', 'Find tutors'], ['dashboard.html', 'Dashboard']],
+  TUTOR: [['dashboard.html', 'Dashboard'], ['availability.html', 'Availability'], ['profile.html', 'Profile']],
   ADMIN: [['admin.html', 'Admin panel']],
 };
 
@@ -49,7 +49,9 @@ const NAV_BY_ROLE = {
 export function renderNav(user) {
   const nav = document.getElementById('app-nav');
   if (!nav) return;
-  const current = window.location.pathname.split('/').pop() || 'index.html';
+  // Works with and without the .html extension (/dashboard is rewritten in vercel.json).
+  const page = window.location.pathname.split('/').pop() || 'index';
+  const current = page.endsWith('.html') ? page : `${page}.html`;
   const links = (user && NAV_BY_ROLE[user.role]) || [];
   nav.replaceChildren(...links.map(([href, label]) => {
     const link = document.createElement('a');

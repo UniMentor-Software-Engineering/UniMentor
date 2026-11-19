@@ -138,7 +138,7 @@ Authentication and role authorization are applied to the operations that modify 
 | Page | Role | Use cases |
 |---|---|---|
 | `tutors.html` | Public, booking for students | "View Availability" on each tutor card shows the free slots grouped by day (CU-07). A student picks a slot, a session type and an optional inquiry, then "Confirm Booking" (CU-08). Visitors without a session are asked to sign in. |
-| `appointments.html` | Student, tutor | "My Sessions": upcoming sessions with the meeting link and "Cancel Session" (CU-09), and a "Past & cancelled" tab. The cancel dialog asks for an optional reason and warns when less than 4 hours remain. After a booking the student lands here (CU-08 step 9). |
+| `dashboard.html` (was `appointments.html`) | Student, tutor | The CU-11 dashboard (extended by P5): upcoming sessions with the meeting link and "Cancel Session" (CU-09), and a "Past & cancelled" tab. The cancel dialog asks for an optional reason and warns when less than 4 hours remain. After a booking the student lands here (CU-08 step 9). |
 | `availability.html` | Tutor | Weekly grid from 07:00 to 22:00. Click free hours, then "Publish Slots" (CU-04; skipped hours are reported). Click a green slot and confirm "Delete Slot" to block it (CU-05). |
 
 The header shows the links of the signed-in role (`renderNav` in `js/session.js`). Shared date helpers live in `js/dates.js` and the styles in `css/booking.css`. No inline styles are used, because the CSP in `vercel.json` only allows stylesheets from `'self'`.
@@ -191,7 +191,7 @@ P5 should build on the existing booking and availability services rather than du
 
 The reservation and cancellation operations already use PostgreSQL transactions.
 
-The notification calls (booking confirmation, cancellation notice) belong after the COMMIT of `createBooking` and `cancelAppointment`. `appointments.html` is the base for the CU-11 dashboard, and the "Past & cancelled" tab is where CU-12 (rating) fits.
+The notification calls (booking confirmation, cancellation notice) belong after the COMMIT of `createBooking` and `cancelAppointment`. P5 did this: see `docs/phase2/p5-notifications/README.md`.
 
 Any new notifications, dashboards, or appointment-related features should integrate with the existing controllers and services.
 

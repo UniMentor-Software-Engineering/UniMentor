@@ -121,7 +121,8 @@ describe('Dashboard and calendar listings', () => {
     const { rows } = await db.query(`
       SELECT id FROM appointments WHERE student_id = $1 AND status = 'CONFIRMED' LIMIT 1
     `, [STUDENT_ID]);
-    // Move it into the past directly (constraints allow it for this test)
+    // Free a quota place; the new session below has started but not ended yet,
+    // so the CU-11 completion job (run by other test files) leaves it CONFIRMED
     await db.query(`
       UPDATE appointments SET status = 'CANCELLED' WHERE id = $1
     `, [rows[0].id]);
@@ -129,7 +130,7 @@ describe('Dashboard and calendar listings', () => {
     createdSlots.push(pastSlot);
     await db.query(`
       INSERT INTO availability_slots (id, tutor_id, time_range, status)
-      VALUES ($1, $2, tstzrange(date_trunc('hour', now()) - interval '1 hour', date_trunc('hour', now()), '[)'), 'BOOKED')
+      VALUES ($1, $2, tstzrange(date_trunc('hour', now()), date_trunc('hour', now()) + interval '1 hour', '[)'), 'BOOKED')
     `, [pastSlot, NOW_TUTOR_ID]);
     const { rows: inserted } = await db.query(`
       INSERT INTO appointments (slot_id, tutor_id, student_id, time_range)

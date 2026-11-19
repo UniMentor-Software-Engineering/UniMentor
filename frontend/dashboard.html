@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dashboard · UniMentor</title>
+    <link rel="stylesheet" href="css/base.css" />
+    <link rel="stylesheet" href="css/booking.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="brand" href="index.html">UniMentor</a>
+        <div class="header-actions">
+          <nav id="app-nav" class="app-nav" aria-label="Main"></nav>
+          <span id="user-name" class="text-muted"></span>
+          <button id="logout-button" type="button" class="btn btn-secondary">Sign out</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="container stack">
+      <h1>My Dashboard</h1>
+      <p class="text-muted">
+        Cancel at least 4 hours before a session to avoid a late-cancellation record.
+        Finished sessions move to the history, where you can add notes or a rating.
+      </p>
+
+      <div class="tabs" role="tablist" aria-label="Sessions">
+        <button id="tab-upcoming" class="tab" type="button" role="tab" aria-selected="true" aria-controls="list-upcoming">Upcoming Sessions <span id="count-upcoming" class="text-muted"></span></button>
+        <button id="tab-history" class="tab" type="button" role="tab" aria-selected="false" aria-controls="list-history">History <span id="count-history" class="text-muted"></span></button>
+      </div>
+
+      <section id="list-upcoming" class="appointment-list" role="tabpanel" aria-labelledby="tab-upcoming" aria-live="polite"></section>
+      <section id="list-history" class="appointment-list" role="tabpanel" aria-labelledby="tab-history" hidden></section>
+    </main>
+
+    <!-- CU-09 steps 2-3: confirm the cancellation, with an optional reason. -->
+    <dialog id="cancel-dialog" class="modal" aria-labelledby="cancel-title">
+      <form id="cancel-form" method="dialog" class="stack" novalidate>
+        <h2 id="cancel-title">Cancel session</h2>
+        <p id="cancel-summary"></p>
+        <p id="cancel-late-warning" class="notice notice-warning" hidden>
+          This session starts in less than 4 hours. Cancelling now is a late cancellation:
+          it will be recorded on your profile and the time slot will stay closed.
+        </p>
+        <div class="form-field">
+          <label for="cancel-reason">Reason <span class="text-muted">(optional)</span></label>
+          <textarea id="cancel-reason" name="reason" class="input" rows="3" maxlength="500"></textarea>
+        </div>
+        <p id="cancel-error" class="field-error" role="alert"></p>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" data-close>Keep session</button>
+          <button type="submit" class="btn btn-danger" id="confirm-cancel">Cancel Session</button>
+        </div>
+      </form>
+    </dialog>
+
+    <!-- CU-12: tutor notes (tutor) or rating and feedback (student). -->
+    <dialog id="review-dialog" class="modal" aria-labelledby="review-title">
+      <form id="review-form" method="dialog" class="stack" novalidate>
+        <h2 id="review-title">Add Notes / Review</h2>
+        <p id="review-summary" class="notice notice-info"></p>
+
+        <div id="notes-fields" class="form-field" hidden>
+          <label for="tutor-notes">Session notes</label>
+          <textarea id="tutor-notes" name="notes" class="input" rows="6" maxlength="2000" placeholder="Topics covered and recommended follow-up resources"></textarea>
+          <p class="text-muted">Only you and the student of this session can read these notes.</p>
+        </div>
+
+        <div id="rating-fields" class="stack" hidden>
+          <fieldset class="rating-input">
+            <legend>Rating</legend>
+            <div class="stars" id="stars"></div>
+          </fieldset>
+          <div class="form-field">
+            <label for="feedback">Feedback <span class="text-muted">(optional)</span></label>
+            <textarea id="feedback" name="feedback" class="input" rows="4" maxlength="1000"></textarea>
+          </div>
+          <p class="text-muted">You can rate each session only once.</p>
+        </div>
+
+        <p id="review-error" class="field-error" role="alert"></p>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" data-close>Close</button>
+          <button type="submit" class="btn btn-primary" id="confirm-review">Save</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script type="module" src="js/dashboard.js"></script>
+  </body>
+</html>

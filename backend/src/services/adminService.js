@@ -4,8 +4,10 @@
 const db = require('../config/db');
 const userRepository = require('../repositories/userRepository');
 const adminRepository = require('../repositories/adminRepository');
+const appointmentRepository = require('../repositories/appointmentRepository');
 const auditLogRepository = require('../repositories/auditLogRepository');
 const AppError = require('../utils/AppError');
+const notifications = require('../notifications');
 
 const MAX_REASON_LENGTH = 500;
 
@@ -34,7 +36,7 @@ async function suspendUser(targetId, adminId, reason) {
   }
   const cleanReason = requireReason(reason);
 
-  return await db.withTransaction(async (client) => {
+  const result = await db.withTransaction(async (client) => {
     const target = await userRepository.lockById(client, targetId);
     if (!target) {
       throw new AppError(404, 'User not found.', 'NOT_FOUND');
@@ -62,10 +64,22 @@ async function suspendUser(targetId, adminId, reason) {
       },
     }, client);
 
-    // After the COMMIT, P5's NotificationService will email the other party of each
-    // cancelled session (as in CU-09), using `cancelledAppointments`.
     return { user, cancelledAppointments: cancelled };
   });
+
+  // After the COMMIT: email the other party of each cancelled session (as in CU-09).
+  // The suspended user is not notified: their account is closed.
+  const cancelledIds = result.cancelledAppointments.map((a) => a.id);
+  if (cancelledIds.length > 0) {
+    notifications.notifyInBackground('suspension cancellation notices', async () => {
+      const details = await appointmentRepository.findAppointmentDetails(cancelledIds);
+      await Promise.all((details || []).map((appointment) => notifications.sendCancellationNotice(appointment, {
+        byAdmin: true,
+        recipients: [appointment.student.id === targetId ? 'TUTOR' : 'STUDENT'],
+      })));
+    });
+  }
+  return result;
 }
 
 // Not in Phase 1's CU-13 flow, but an admin needs a way to undo a suspension.

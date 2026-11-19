@@ -399,3 +399,71 @@ describe('Dashboard and calendar listings', () => {
     );
   });
 });
+
+describe('CU-12 routes', () => {
+  const APPOINTMENT = 'f0000000-0000-0000-0000-000000000001';
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('PUT notes is only for tutors', async () => {
+    const res = await request(app)
+      .put(`/api/appointments/${APPOINTMENT}/notes`)
+      .set('X-Requested-With', 'XMLHttpRequest')
+      .set('Cookie', cookieFor('STUDENT'))
+      .send({ notes: 'x' });
+
+    expect(res.status).toBe(403);
+    expect(bookingService.saveTutorNotes).not.toHaveBeenCalled();
+  });
+
+  it('PUT notes saves the tutor notes', async () => {
+    bookingService.saveTutorNotes.mockResolvedValue({ id: APPOINTMENT, tutor_notes: 'Topics' });
+
+    const res = await request(app)
+      .put(`/api/appointments/${APPOINTMENT}/notes`)
+      .set('X-Requested-With', 'XMLHttpRequest')
+      .set('Cookie', cookieFor('TUTOR'))
+      .send({ notes: 'Topics' });
+
+    expect(res.status).toBe(200);
+    expect(bookingService.saveTutorNotes).toHaveBeenCalledWith(STUDENT_ID, APPOINTMENT, 'Topics');
+  });
+
+  it('POST review is only for students', async () => {
+    const res = await request(app)
+      .post(`/api/appointments/${APPOINTMENT}/review`)
+      .set('X-Requested-With', 'XMLHttpRequest')
+      .set('Cookie', cookieFor('TUTOR'))
+      .send({ rating: 5 });
+
+    expect(res.status).toBe(403);
+  });
+
+  it('POST review returns the CU-12 A1 error before the session ends', async () => {
+    const AppError = require('../../src/utils/AppError');
+    bookingService.submitReview.mockRejectedValue(
+      new AppError(409, 'Ratings and notes are accessible only after session completion.', 'SESSION_NOT_COMPLETED')
+    );
+
+    const res = await request(app)
+      .post(`/api/appointments/${APPOINTMENT}/review`)
+      .set('X-Requested-With', 'XMLHttpRequest')
+      .set('Cookie', cookieFor('STUDENT'))
+      .send({ rating: 5, feedback: 'Great' });
+
+    expect(res.status).toBe(409);
+    expect(res.body.error.message).toBe('Ratings and notes are accessible only after session completion.');
+    expect(bookingService.submitReview).toHaveBeenCalledWith(STUDENT_ID, APPOINTMENT, 5, 'Great');
+  });
+
+  it('PUT notes without the CSRF header is rejected', async () => {
+    const res = await request(app)
+      .put(`/api/appointments/${APPOINTMENT}/notes`)
+      .set('Cookie', cookieFor('TUTOR'))
+      .send({ notes: 'x' });
+
+    expect(res.status).toBe(403);
+  });
+});

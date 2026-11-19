@@ -33,6 +33,18 @@ const config = {
     .filter(Boolean),
   // npm run db:seed empties every table, so outside a local database it must be requested.
   allowSeedReset: process.env.ALLOW_SEED_RESET === 'true',
+  // P5, ADR 6: email notifications. Without SENDGRID_API_KEY the console provider is used,
+  // so no real email can leave a developer's machine.
+  email: {
+    sendgridApiKey: process.env.SENDGRID_API_KEY || '',
+    from: process.env.EMAIL_FROM || 'UniMentor <no-reply@unimentor.edu>',
+    // Times in emails are shown in the university's time zone.
+    timeZone: process.env.EMAIL_TIMEZONE || 'Europe/Madrid',
+    // Base URL for links in emails (the dashboard). Defaults to the first allowed origin.
+    appUrl: (process.env.APP_URL || (process.env.FRONTEND_ORIGIN || 'http://localhost:5500').split(',')[0]).trim().replace(/\/+$/, ''),
+  },
+  // CU-10: the reminder scheduler runs inside the API process unless disabled.
+  schedulerEnabled: process.env.SCHEDULER_ENABLED !== 'false' && nodeEnv !== 'test',
   // npm run db:create-admin (see README, Deployment).
   newAdmin: {
     email: process.env.ADMIN_EMAIL,

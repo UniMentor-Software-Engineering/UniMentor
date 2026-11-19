@@ -357,3 +357,59 @@ button.slot-chip:hover {
 .week-grid thead th.today {
   color: var(--color-primary);
 }
+
+/* ---------- Dashboard history and rating (CU-11, CU-12) ---------- */
+.appointment-notes {
+  padding: var(--space-3);
+  border-left: 3px solid var(--color-primary);
+  border-radius: var(--radius);
+  background: var(--color-bg);
+  font-size: var(--font-size-sm);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.rating-stars {
+  color: var(--color-warning);
+  letter-spacing: 0.1em;
+}
+
+.rating-input {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.rating-input legend {
+  margin-bottom: var(--space-2);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+/* Five radio buttons shown as stars. Row reversed so that ":hover ~" and ":checked ~"
+   light up the hovered/checked star and every star to its left. */
+.stars {
+  display: inline-flex;
+  flex-direction: row-reverse;
+  gap: var(--space-1);
+}
+
+.star {
+  cursor: pointer;
+  font-size: 2rem;
+  line-height: 1;
+  color: var(--color-border);
+}
+
+.star:hover,
+.star:hover ~ .star,
+.star:has(input:checked),
+.star:has(input:checked) ~ .star {
+  color: var(--color-warning);
+}
+
+.star:has(input:focus-visible) {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}

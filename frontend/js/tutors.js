@@ -190,8 +190,8 @@ async function confirmBooking(event) {
       sessionType: bookingForm.elements.sessionType.value,
       studentInquiry: inquiry.value.trim() || null,
     });
-    // CU-08 step 9: go to the appointments dashboard with a success confirmation.
-    window.location.href = 'appointments.html?booked=1';
+    // CU-08 step 9: go to the CU-11 dashboard with a success confirmation.
+    window.location.href = 'dashboard.html?booked=1';
   } catch (err) {
     bookingError.textContent = err.message;
     confirmButton.disabled = false;
