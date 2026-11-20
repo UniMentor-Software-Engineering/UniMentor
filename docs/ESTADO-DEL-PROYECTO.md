@@ -1,6 +1,6 @@
 # Estado del proyecto UniMentor
 
-*Última actualización: 5 de noviembre de 2026 (semana 9)*
+*Última actualización: 20 de noviembre de 2026 (semana 11)*
 
 Este documento resume en qué punto está el proyecto, qué falta y cómo ponerse a trabajar. Si eres del equipo, léelo antes de crear tu rama.
 
@@ -33,20 +33,18 @@ P4 tiene la parte más difícil. Quien acabe antes, que le ayude con el frontend
 
 ---
 
-## Resumen de avance (5 nov)
+## Resumen de avance (20 nov)
 
-> **Después de `git pull`, ejecutar `npm install` y `npm run db:migrate` en `backend/`** (hay una migración nueva, la 005). Las secciones 4.3.2 y 4.3.3 y las correcciones de la revisión del 5 de noviembre están en dos PRs, pendientes de revisar y fusionar.
-
-Estimación por partes: código (backend y tests), frontend, sección del documento y revisión y despliegue.
+> **Todo el código de P1–P5 está en `main`** (PRs #13–#16). Después de `git pull`, ejecutar `npm install` y `npm run db:migrate` en `backend/`. Lo único pendiente es el despliegue en Render y Vercel (P1, ver la sección 4).
 
 | Parte | Backend + tests | Frontend | Documento | Revisión / despliegue | **Avance** |
 |---|---|---|---|---|---|
-| P1 Estructura e integración | ✅ | ✅ | ✅ 4.1 | ❌ despliegue, revisiones de compañeros y protección de `main` | **~85 %** |
-| P2 BD y búsqueda | ✅ | ✅ | ✅ 4.2 | ❌ revisión de un compañero | **~95 %** |
-| P3 Autenticación y admin | ✅ (faltan las conexiones con P5) | ✅ | ✅ 4.3.1 | ❌ revisión de un compañero | **~90 %** |
-| P4 Reservas | ❌ | ❌ | 🟡 4.3.2 escrita, el código del ejemplo aún es diseño | ❌ | **~10 %** |
-| P5 Notificaciones e historial | ❌ (columnas ya creadas) | ❌ | 🟡 4.3.3 escrita, describe un diseño sin implementar | ❌ | **~10 %** |
-| **Proyecto** | | | | | **~60 %** |
+| P1 Estructura e integración | ✅ | ✅ | ✅ 4.1 | ❌ despliegue en Render y Vercel | **~90 %** |
+| P2 BD y búsqueda | ✅ | ✅ | ✅ 4.2 | ✅ | **100 %** |
+| P3 Autenticación y admin | ✅ (conexiones con P5 hechas) | ✅ | ✅ 4.3.1 | ✅ | **100 %** |
+| P4 Reservas | ✅ CU-04, 05, 07, 08, 09 y test de concurrencia | ✅ | ✅ 4.3.2 | ✅ | **100 %** |
+| P5 Notificaciones e historial | ✅ CU-10, 11, 12 y `NotificationService` | ✅ dashboard | ✅ 4.3.3 | ✅ | **100 %** |
+| **Proyecto** | | | | | **~98 %** |
 
 ---
 
