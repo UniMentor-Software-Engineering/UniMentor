@@ -1,0 +1,21 @@
+name: Keep API awake
+
+# Render's free instance sleeps after 15 minutes without traffic, and while it sleeps the
+# CU-10 reminder scheduler (inside the API process) does not run. This pings the health
+# endpoint every 10 minutes so the instance stays awake.
+# GitHub may delay scheduled runs at busy times, so an occasional gap is still possible.
+# Public repository: these runs do not consume Actions minutes.
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Ping /api/health
+        # Straight to Render, not through Vercel, so Vercel's bot protection is not triggered.
+        # --retry covers the ~50 s cold start when the instance was asleep.
+        run: curl --fail --silent --show-error --max-time 90 --retry 2 --retry-delay 10 https://unimentor-api.onrender.com/api/health
