@@ -1,6 +1,6 @@
 # Estado del proyecto UniMentor
 
-*Última actualización: 20 de noviembre de 2026 (semana 11)*
+*Última actualización: 21 de noviembre de 2026 (semana 11)*
 
 Este documento resume en qué punto está el proyecto, qué falta y cómo ponerse a trabajar. Si eres del equipo, léelo antes de crear tu rama.
 
@@ -33,7 +33,7 @@ P4 tiene la parte más difícil. Quien acabe antes, que le ayude con el frontend
 
 ---
 
-## Resumen de avance (20 nov)
+## Resumen de avance (21 nov)
 
 > **Todo el código de P1–P5 está en `main`** (PRs #13–#16). Después de `git pull`, ejecutar `npm install` y `npm run db:migrate` en `backend/`. **Desplegado** (21 nov): web en https://unimentor-uax.vercel.app y API en https://unimentor-api.onrender.com. La migración 006 carga el catálogo de asignaturas en producción.
 
@@ -47,11 +47,13 @@ P4 tiene la parte más difícil. Quien acabe antes, que le ayude con el frontend
 | **Proyecto** | | | | | **100 %** |
 
 **Pendiente tras el despliegue (21 nov):**
-- [ ] Render: comprobar que **Auto-Deploy** está en *On Commit* (tras el PR #18 no desplegó solo).
-- [ ] GitHub: proteger `main` (PR obligatorio y CI en verde).
+- [x] Render despliega solo en cada merge a `main` (faltaba instalar la app de Render en la organización de GitHub; comprobado con el PR #20).
+- [x] `main` protegida: PR con 1 aprobación y los dos jobs del CI en verde; sin force push ni borrado.
 - [ ] SendGrid: `SENDGRID_API_KEY` y `EMAIL_FROM` en Render. Sin ellos los emails solo salen en el log.
 - [ ] La PostgreSQL gratuita de Render caduca hacia el **20 de diciembre de 2026** (30 días desde su creación).
 - [x] API despierta: el workflow `keep-alive.yml` llama a `/api/health` cada 10 minutos.
+- [x] Login probado de punta a punta en producción con Chrome y Brave (registro, perfil, disponibilidad, búsqueda, reserva, cancelación, admin). Falta probarlo en Safari.
+- [x] Vercel reenvía `/api/*` a Render, así que la cookie de sesión es del propio sitio y los navegadores que bloquean cookies de terceros ya no la descartan.
 
 ---
 
@@ -86,27 +88,25 @@ Se ha probado de punta a punta con un PostgreSQL real: navegador → `api.js` �
 
 ## 4. Lo que falta
 
-### P1 (urgente, antes de presentar esta semana)
+### P1
 
-- [ ] **Desplegar el backend y la BD en Render.** En Render: New → Blueprint → seleccionar este repo (usa `render.yaml`). Las migraciones se aplican solas al arrancar.
-- [ ] **Crear el primer administrador** con `npm run db:create-admin` (pasos en el `README.md`, sección *Deployment*). **No usar `db:seed` en la base de datos desplegada:** borra todo y crea cuentas con una contraseña pública.
-- [ ] **Desplegar el frontend en Vercel.** Importar el repo con *Root Directory* = `frontend`, sin comando de build. ⚠️ El nombre `unimentor.vercel.app` **ya lo usa otra persona**, así que hay que elegir otro.
-- [ ] En Render, poner la variable `FRONTEND_ORIGIN` con la URL real de Vercel.
-- [ ] En `frontend/js/config.js`, cambiar `PRODUCTION_API_URL` por la URL real de Render (ahora hay una provisional).
-- [ ] Abrir la URL de Vercel y comprobar que la página muestra "API: online" y "Database: online". Probar también el login en Safari, que puede bloquear la cookie entre sitios (ADR 4).
+- [x] **Desplegar el backend y la BD en Render.** En Render: New → Blueprint → seleccionar este repo (usa `render.yaml`). Las migraciones se aplican solas al arrancar.
+- [x] **Crear el primer administrador** con `npm run db:create-admin` (pasos en el `README.md`, sección *Deployment*). **No usar `db:seed` en la base de datos desplegada:** borra todo y crea cuentas con una contraseña pública.
+- [x] **Desplegar el frontend en Vercel** (`unimentor-uax.vercel.app`).
+- [x] En Render, poner la variable `FRONTEND_ORIGIN` con la URL real de Vercel.
+- [x] `frontend/js/config.js`: en producción usa `/api`, que Vercel reenvía a Render.
+- [x] La URL de Vercel muestra "API: online" y "Database: online". Falta probar el login en Safari.
 - [ ] Repetir la prueba de carga contra Render: `npx artillery@2 run --target <URL de Render> tests/load/directory.yml` (en local: p95 de 79 ms con 300 tutores).
 - [ ] Decidir qué hacer con SonarQube y OWASP ZAP, que la Fase 1 cita como métodos de prueba de NFR-02 (ZAP necesita la URL desplegada y SonarQube, una cuenta).
 - [ ] **Revisión del PR #4 por un compañero.** Se fusionó sin revisión. Basta con que alguien lo revise y deje un comentario.
-- [ ] Activar la protección de `main` en GitHub (Settings → Branches → "Require a pull request review before merging").
-
-> El documento 4.1 ya describe el despliegue como funcionando, así que tiene que estar hecho antes de enseñarlo.
+- [x] Activar la protección de `main` en GitHub.
 
 - [x] Cabeceras de seguridad (NFR-02): `helmet` en la API y Content-Security-Policy de las páginas en `frontend/vercel.json` (PR #9).
 - [x] El CI se ejecuta en todos los PR, también en los que van encima de otra rama (PR #9).
 
 ### P1 (más adelante)
 
-- [ ] Maquetación final del documento completo cuando P2–P5 entreguen sus secciones.
+- [x] Maquetación final del documento completo (4.1–4.3.3, PDF regenerado).
 
 ### P2: fusionado en `main` (PR #6, 30 oct)
 
@@ -134,8 +134,8 @@ Se ha probado de punta a punta con un PostgreSQL real: navegador → `api.js` �
 - [x] Sección 4.3.1 Chain of Responsibility en `04-implementation-details.md` (y el PDF regenerado). Se ha borrado `docs/phase3/`.
 - [x] Fusionado en `main` (PR #8).
 - [ ] Revisión del PR #8 por un compañero (se fusionó sin ella).
-- [ ] Cuando P5 tenga el `NotificationService`: email de bienvenida (CU-01, paso 8) y aviso a la otra parte de las citas canceladas por una suspensión (CU-13). Los sitios están marcados en `authService.js` y `adminService.js`.
-- [ ] Cuando P5 tenga el dashboard (CU-11), cambiar a dónde van estudiantes y tutores después del login (`HOME_BY_ROLE` en `frontend/js/session.js`).
+- [x] Cuando P5 tenga el `NotificationService`: email de bienvenida (CU-01, paso 8) y aviso a la otra parte de las citas canceladas por una suspensión (CU-13). Los sitios están marcados en `authService.js` y `adminService.js`.
+- [x] Cuando P5 tenga el dashboard (CU-11), cambiar a dónde van estudiantes y tutores después del login (`HOME_BY_ROLE` en `frontend/js/session.js`).
 
 **Para P2, P4 y P5:** para proteger una ruta, `router.post('/...', verifyJWT, requireRole('STUDENT'), controller.accion)`. El usuario está en `req.user` (`{ id, role }`). Las peticiones que cambian datos necesitan la cabecera `X-Requested-With`, que `api.js` ya pone (en los tests con Supertest, `.set('X-Requested-With', 'XMLHttpRequest')`). P4: al reservar, comprobar que el tutor sigue `ACTIVE`.
 
@@ -143,7 +143,7 @@ Se ha probado de punta a punta con un PostgreSQL real: navegador → `api.js` �
 
 - [x] Secciones 4.3.2 (Repository) y 4.3.3 (Adapter y Strategy). Indican qué es diseño todavía: el responsable de cada parte debe revisarlas y actualizarlas al implementar.
 - [x] Columnas que necesitan: `reminder_sent` (CU-10), `student_rating` (CU-12) y `cancellation_reason` (CU-09), en la migración 005.
-- [ ] Sus casos de uso: P4 (CU-04, 05, 07, 08, 09 y el test de concurrencia) y P5 (CU-10, 11, 12 y `NotificationService`).
+- [x] Sus casos de uso: P4 (CU-04, 05, 07, 08, 09 y el test de concurrencia, PRs #13 y #14) y P5 (CU-10, 11, 12 y `NotificationService`, PR #15).
 
 **Para P4:** el test de concurrencia (NFR-03) va en `backend/tests/db/`, que ya se ejecuta contra PostgreSQL real en el CI (`npm run test:db`).
 
