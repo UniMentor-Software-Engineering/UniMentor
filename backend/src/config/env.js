@@ -46,6 +46,11 @@ const config = {
   },
   // CU-10: the reminder scheduler runs inside the API process unless disabled.
   schedulerEnabled: process.env.SCHEDULER_ENABLED !== 'false' && nodeEnv !== 'test',
+  // npm run db:reset-password (see README, Deployment).
+  passwordReset: {
+    email: process.env.RESET_EMAIL,
+    password: process.env.RESET_PASSWORD,
+  },
   // npm run db:create-admin (see README, Deployment).
   newAdmin: {
     email: process.env.ADMIN_EMAIL,

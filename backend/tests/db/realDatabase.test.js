@@ -283,6 +283,29 @@ describe('npm run db:create-admin', () => {
   });
 });
 
+describe('npm run db:reset-password', () => {
+  const env = { RESET_EMAIL: 'Admin@UniMentor.edu', RESET_PASSWORD: 'brand-new-pass-42' };
+
+  it('changes the password, unlocks the account and records it', async () => {
+    await db.query("UPDATE users SET failed_login_count = 3, locked_until = now() + interval '10 minutes' WHERE email = 'admin@unimentor.edu'");
+    expect(runScript('resetPassword', env)).toMatch(/Password changed and account unlocked: admin@unimentor.edu/);
+
+    await signIn('admin@unimentor.edu', env.RESET_PASSWORD);
+    const old = await post('/api/auth/login').send({ email: 'admin@unimentor.edu', password: PASSWORD });
+    expect(old.status).toBe(401);
+    const { rows } = await db.query("SELECT details FROM audit_logs WHERE action = 'PASSWORD_RESET'");
+    expect(rows).toEqual([{ details: { source: 'db:reset-password' } }]);
+  });
+
+  it('asks for 12 characters on an administrator account', () => {
+    expect(() => runScript('resetPassword', { ...env, RESET_PASSWORD: 'short-pass1' })).toThrow(/RESET_PASSWORD needs 12/);
+  });
+
+  it('refuses an email that has no account', () => {
+    expect(() => runScript('resetPassword', { ...env, RESET_EMAIL: 'nobody@myuax.com' })).toThrow(/No account uses that email/);
+  });
+});
+
 describe('npm run db:seed', () => {
   it('refuses to erase a production database', async () => {
     expect(() => runScript('seed', { NODE_ENV: 'production', JWT_SECRET: 'x', FRONTEND_ORIGIN: 'https://x.example' }))

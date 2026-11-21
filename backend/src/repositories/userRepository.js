@@ -114,6 +114,14 @@ async function updateStatus(client, id, status) {
   return rows[0];
 }
 
+// db:reset-password: new hash, and the failed-login counter and lock are cleared.
+async function updatePassword(client, id, passwordHash) {
+  await client.query(
+    `UPDATE users SET password_hash = $2, failed_login_count = 0, locked_until = NULL WHERE id = $1`,
+    [id, passwordHash],
+  );
+}
+
 module.exports = {
   findAuthState,
   findPublicById,
@@ -124,4 +132,5 @@ module.exports = {
   findAll,
   lockById,
   updateStatus,
+  updatePassword,
 };
