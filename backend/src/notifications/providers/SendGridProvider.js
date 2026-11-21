@@ -2,14 +2,11 @@
 // It converts our provider interface, send({ to, subject, text, html }), into a call to the
 // SendGrid v3 Mail Send API. It uses the built-in fetch instead of the @sendgrid/mail SDK:
 // the request is a single POST, and one dependency less keeps `npm audit` (NFR-02) quiet.
+const { parseAddress } = require('./address');
+
 const SENDGRID_URL = 'https://api.sendgrid.com/v3/mail/send';
 const TIMEOUT_MS = 10000;
 
-// "UniMentor <no-reply@x.edu>" -> { name, email }
-function parseAddress(address) {
-  const match = /^\s*(.*?)\s*<([^>]+)>\s*$/.exec(address);
-  return match ? { name: match[1] || undefined, email: match[2] } : { email: address.trim() };
-}
 
 class SendGridProvider {
   /**

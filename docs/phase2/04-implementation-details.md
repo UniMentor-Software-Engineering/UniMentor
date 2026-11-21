@@ -644,9 +644,9 @@ Two patterns solve different parts of the problem. **Adapter** converts the inte
 | GoF role | UniMentor element |
 |---|---|
 | **Target / Strategy interface** | An email provider: an object with `send({ to, subject, text, html })` |
-| **Adapter / ConcreteStrategy** | `SendGridProvider` (translates our message into a SendGrid v3 Mail Send request) |
+| **Adapter / ConcreteStrategy** | `SendGridProvider` (translates our message into a SendGrid v3 Mail Send request) and `BrevoProvider` (into a Brevo v3 transactional email request) |
 | **ConcreteStrategy** | `ConsoleProvider` (logs the message, for development and tests) |
-| **Adaptee** | The SendGrid v3 HTTP API |
+| **Adaptee** | The SendGrid and Brevo v3 HTTP APIs |
 | **Context / Client** | `NotificationService`, used by the services and by the CU-10 scheduler |
 
 ```js
@@ -677,7 +677,7 @@ class NotificationService {
 }
 ```
 
-The adapter calls the HTTP API with the built-in `fetch` instead of the `@sendgrid/mail` SDK: the request is a single POST, and one dependency less keeps `npm audit` (NFR-02) clean. The provider is chosen once in `notifications/index.js`: `SendGridProvider` when `SENDGRID_API_KEY` is set, `ConsoleProvider` otherwise.
+The adapter calls the HTTP API with the built-in `fetch` instead of the `@sendgrid/mail` SDK: the request is a single POST, and one dependency less keeps `npm audit` (NFR-02) clean. The provider is chosen once in `notifications/index.js`: `BrevoProvider` when `BREVO_API_KEY` is set, `SendGridProvider` when `SENDGRID_API_KEY` is set, `ConsoleProvider` otherwise.
 
 Failures are handled according to each use case, using the same provider. After a `COMMIT`, the services call `notifyInBackground()`: the response does not wait for the email, and a failed confirmation is logged without affecting it, because the booking is already valid. In CU-10 the scheduler, which runs every 10 minutes inside the API process, sets `reminder_sent = TRUE` only after the provider accepts both messages with HTTP 202 (the sequence diagram of Section 3.2.2), so a failure leaves the appointment queued for the next cycle.
 
@@ -685,7 +685,7 @@ Failures are handled according to each use case, using the same provider. After 
 
 **Benefits**
 
-- **Vendor independence.** Replacing SendGrid means writing one new provider class. No use case changes, which is the impact ADR 6 asks for.
+- **Vendor independence.** Replacing SendGrid means writing one new provider class. No use case changes, which is the impact ADR 6 asks for. This was put to the test during deployment: SendGrid had replaced its permanent free plan with a 60-day trial, so `BrevoProvider` (free plan of 300 emails a day) was added and selected through `BREVO_API_KEY`, with no change to the services, the templates or the scheduler.
 - **Testability.** Tests inject a fake provider and check which messages would be sent, with no network and no API key.
 - **Safe development.** Without an API key, `ConsoleProvider` is selected and no real email can leave a developer's machine.
 - **Open/Closed.** A new channel, such as SMS, is a new class that implements the same interface.

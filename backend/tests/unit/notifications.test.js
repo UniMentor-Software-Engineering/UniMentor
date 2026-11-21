@@ -2,6 +2,7 @@
 // the CU-10 reminder cycle. No network: fetch and the provider are fakes.
 const NotificationService = require('../../src/notifications/NotificationService');
 const SendGridProvider = require('../../src/notifications/providers/SendGridProvider');
+const BrevoProvider = require('../../src/notifications/providers/BrevoProvider');
 const ConsoleProvider = require('../../src/notifications/providers/ConsoleProvider');
 const templates = require('../../src/notifications/templates');
 const { runReminderCycle } = require('../../src/jobs/reminderScheduler');
@@ -107,6 +108,67 @@ describe('SendGridProvider (Adapter)', () => {
 
   it('needs an API key', () => {
     expect(() => new SendGridProvider({ apiKey: '', from: 'x@y.z' })).toThrow();
+  });
+});
+
+describe('BrevoProvider (Adapter)', () => {
+  function provider(status, body = '') {
+    const fetchImpl = jest.fn().mockResolvedValue({ status, text: async () => body });
+    return { fetchImpl, brevo: new BrevoProvider({ apiKey: 'xkeysib-test', from: 'UniMentor <no-reply@myuax.com>', fetchImpl }) };
+  }
+
+  it('maps our message to the Brevo v3 request', async () => {
+    const { fetchImpl, brevo } = provider(201, '{"messageId":"<1@brevo>"}');
+    await brevo.send({ to: 'a@myuax.com', subject: 'Hi', text: 'Plain', html: '<p>Hi</p>' });
+
+    const [url, options] = fetchImpl.mock.calls[0];
+    expect(url).toBe('https://api.brevo.com/v3/smtp/email');
+    expect(options.headers['api-key']).toBe('xkeysib-test');
+    expect(JSON.parse(options.body)).toEqual({
+      sender: { name: 'UniMentor', email: 'no-reply@myuax.com' },
+      to: [{ email: 'a@myuax.com' }],
+      subject: 'Hi',
+      textContent: 'Plain',
+      htmlContent: '<p>Hi</p>',
+    });
+  });
+
+  it('sends plain text only when there is no HTML version', async () => {
+    const { fetchImpl, brevo } = provider(201);
+    await brevo.send({ to: 'a@myuax.com', subject: 'Hi', text: 'Plain' });
+    expect(JSON.parse(fetchImpl.mock.calls[0][1].body)).not.toHaveProperty('htmlContent');
+  });
+
+  it('fails unless Brevo answers 201 (CU-10 step 4)', async () => {
+    const { brevo } = provider(401, '{"code":"unauthorized"}');
+    await expect(brevo.send({ to: 'a@myuax.com', subject: 'x', text: 'x' })).rejects.toThrow('HTTP 401');
+  });
+
+  it('needs an API key', () => {
+    expect(() => new BrevoProvider({ apiKey: '', from: 'x@y.z' })).toThrow();
+  });
+});
+
+describe('provider selection (Strategy chosen from the configuration)', () => {
+  function providerWith(env) {
+    const saved = { ...process.env };
+    Object.assign(process.env, { BREVO_API_KEY: '', SENDGRID_API_KEY: '' }, env);
+    let service;
+    jest.isolateModules(() => { service = require('../../src/notifications'); });
+    process.env = saved;
+    return service.provider.name;
+  }
+
+  it('uses Brevo when BREVO_API_KEY is set, even with a SendGrid key', () => {
+    expect(providerWith({ BREVO_API_KEY: 'xkeysib-x', SENDGRID_API_KEY: 'SG.x' })).toBe('brevo');
+  });
+
+  it('uses SendGrid when only SENDGRID_API_KEY is set', () => {
+    expect(providerWith({ SENDGRID_API_KEY: 'SG.x' })).toBe('sendgrid');
+  });
+
+  it('falls back to the console without keys', () => {
+    expect(providerWith({})).toBe('console');
   });
 });
 

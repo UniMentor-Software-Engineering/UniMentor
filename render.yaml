@@ -29,8 +29,11 @@ services:
       # belongs to someone else, so the team's project needs a different one.
       - key: FRONTEND_ORIGIN
         sync: false
-      # P5 email (ADR 6). Without SENDGRID_API_KEY emails are only written to the log.
-      # EMAIL_FROM must be a sender verified in SendGrid; APP_URL is the Vercel URL.
+      # P5 email (ADR 6). Brevo is used when BREVO_API_KEY is set (SendGrid still works with
+      # SENDGRID_API_KEY). Without a key, emails are only written to the log.
+      # EMAIL_FROM must be a sender verified in the provider; APP_URL is the Vercel URL.
+      - key: BREVO_API_KEY
+        sync: false
       - key: SENDGRID_API_KEY
         sync: false
       - key: EMAIL_FROM
