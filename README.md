@@ -19,12 +19,24 @@ University tutoring platform: students find tutors by subject, book sessions in 
 
 After signing in, students and tutors land on `dashboard.html` and the administrator on `admin.html`. Reminders 24 hours before a session (CU-10) are sent by a scheduler inside the API.
 
+### Demo accounts (production)
+
+To try the live site without registering, use these demo accounts (password `UniMentorDemo2026` for both). They hold no real data; please do not change them.
+
+| Email | Role | What to try |
+|---|---|---|
+| `demo.tutor@unimentor.edu` | Tutor (Lucía Martín) | Profile with three subjects and free hours on weekdays 16:00-19:00 (Madrid) until 18 December 2026 |
+| `demo.student@unimentor.edu` | Student (Pablo Ruiz) | Find Lucía in *Find Tutors*, book an hour and cancel it from the dashboard (notes and ratings open once a session has ended) |
+
+The administrator account is not published here: ask the team for it. Team members keep every credential (local, production and service accounts) in `CREDENTIALS.local.md` at the repository root, a file that is in `.gitignore` and must never be committed.
+
 ## Repository layout
 
 ```
 backend/    REST API (Express, layered: routes -> controllers -> services -> repositories)
 frontend/   Static site (HTML, CSS, JS modules). All API calls go through js/api.js
-docs/       Project documentation: Phase 1 PDFs, Phase 2 document and module notes
+docs/       phase1/ (Phase 1 PDFs), phase2/ (Phase 2 document and PDF),
+            modules/ (P4 and P5 notes), build/ (Markdown-to-PDF tool)
 .github/    GitHub Actions: CI on every Pull Request and the API keep-alive ping
 render.yaml Render Blueprint for the API (the database is on Supabase)
 ```
@@ -37,7 +49,7 @@ render.yaml Render Blueprint for the API (the database is on Supabase)
 | **P4** Bookings | CU-04, CU-05, CU-07, CU-08, CU-09, booking transaction with `FOR UPDATE`, concurrency test | 4.3.2 Repository |
 | **P5** Notifications and history | CU-10, CU-11, CU-12, `NotificationService` (Brevo / SendGrid adapters) | 4.3.3 Adapter and Strategy |
 
-Module notes: `docs/phase2/p4-reservas/README.md` and `docs/phase2/p5-notifications/README.md`.
+Module notes by P4 and P5: `docs/modules/p4-bookings.md` and `docs/modules/p5-notifications.md`.
 
 ## Run locally
 
