@@ -30,6 +30,33 @@ To try the live site without registering, use these demo accounts (password `Uni
 
 The administrator account is not published here: ask the team for it. Team members keep every credential (local, production and service accounts) in `CREDENTIALS.local.md` at the repository root, a file that is in `.gitignore` and must never be committed.
 
+## Tech stack
+
+| Area | Technology | Used for |
+|---|---|---|
+| **Frontend** | HTML5, CSS3 (custom properties) and JavaScript ES modules, no framework and no build step (ADR 3) | The eight pages; calendar views drawn with plain HTML tables and lists; dates with the browser's `Intl` API |
+| **Backend** | Node.js 22+ and Express 5 (ADR 1) | REST API in layers: routes, controllers, services, repositories |
+| | `pg` 8 | PostgreSQL client and connection pool; transactions with `SELECT ... FOR UPDATE` |
+| | `jsonwebtoken` 9, `bcryptjs` 3, `cookie-parser` 1 | JWT in an `HttpOnly` cookie (ADR 4) and password hashing (cost 12) |
+| | `helmet` 8, `cors` 2 | Security headers and CORS with credentials (NFR-02) |
+| | `dotenv` 18 | Loads `backend/.env` in development |
+| | Built-in `fetch` | Brevo and SendGrid email APIs, without an SDK (ADR 6) |
+| **Database** | PostgreSQL 17 (ADR 2) with the `btree_gist` and `unaccent` extensions | `EXCLUDE` constraints against overlapping slots (BR-CONF-05) and accent-insensitive search (CU-06) |
+| **Quality** | ESLint 10 | Static analysis |
+| | Jest 30 and Supertest 7 | Unit, integration and real-PostgreSQL tests (coverage >= 70 %, NFR-04) |
+| | Artillery 2 | Load test (NFR-01) |
+| | OWASP ZAP | Security baseline scan of the live site (NFR-02) |
+| | `npm audit` | Vulnerable dependencies, checked in CI |
+| **CI/CD** | GitHub Actions | Lint, tests and audit on every Pull Request; API keep-alive ping |
+| **Hosting** (ADR 7, all free plans) | Vercel | Static frontend and the `/api` proxy |
+| | Render | Node.js API (Oregon) |
+| | Supabase | PostgreSQL database (Oregon) |
+| | Brevo | Transactional email (300 a day) |
+| **Development** | Docker | Local PostgreSQL |
+| | nodemon 3 | Restarts the API on file changes |
+| | `serve` (through `npx`) | Serves the frontend locally |
+| **Documentation** | `marked` 18 and `puppeteer-core` 25 (with Chrome) | Builds the PDFs from Markdown (`docs/build/`) |
+
 ## Repository layout
 
 ```
