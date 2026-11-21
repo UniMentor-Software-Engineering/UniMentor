@@ -97,8 +97,9 @@ Se ha probado de punta a punta con un PostgreSQL real: navegador → `api.js` �
 - [x] En Render, poner la variable `FRONTEND_ORIGIN` con la URL real de Vercel.
 - [x] `frontend/js/config.js`: en producción usa `/api`, que Vercel reenvía a Render.
 - [x] La URL de Vercel muestra "API: online" y "Database: online". Falta probar el login en Safari.
-- [ ] Repetir la prueba de carga contra Render: `npx artillery@2 run --target <URL de Render> tests/load/directory.yml` (en local: p95 de 79 ms con 300 tutores).
-- [ ] Decidir qué hacer con SonarQube y OWASP ZAP, que la Fase 1 cita como métodos de prueba de NFR-02 (ZAP necesita la URL desplegada y SonarQube, una cuenta).
+- [x] Prueba de carga contra Render (21 nov): p95 de 194 ms con 50 usuarios y 9.000 peticiones, sin errores (NFR-01 < 200 ms). Casi todo es la red hasta Oregón; en local, p95 de 79 ms con 300 tutores.
+- [x] OWASP ZAP (escaneo pasivo de la web desplegada, 21 nov): 0 fallos, 58 reglas superadas y 10 avisos. Corregido el único real (formularios de login y registro sin `method="post"`) y añadida `Cross-Origin-Opener-Policy`.
+- [ ] SonarQube: necesita una cuenta. Decidir si se usa o se quita la mención de la Fase 1.
 - [ ] **Revisión del PR #4 por un compañero.** Se fusionó sin revisión. Basta con que alguien lo revise y deje un comentario.
 - [x] Activar la protección de `main` en GitHub.
 
