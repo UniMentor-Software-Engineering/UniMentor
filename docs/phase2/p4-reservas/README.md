@@ -183,16 +183,4 @@ Run ESLint:
 npm run lint
 ```
 
-On 2026-11-19, all 237 backend tests passed against a migrated and seeded PostgreSQL, and ESLint reported no errors.
-
-## 9. Integration Notes for P5
-
-P5 should build on the existing booking and availability services rather than duplicating their database logic.
-
-The reservation and cancellation operations already use PostgreSQL transactions.
-
-The notification calls (booking confirmation, cancellation notice) belong after the COMMIT of `createBooking` and `cancelAppointment`. P5 did this: see `docs/phase2/p5-notifications/README.md`.
-
-Any new notifications, dashboards, or appointment-related features should integrate with the existing controllers and services.
-
-Shared files, especially tutor routes and controllers, should be merged carefully to preserve changes made by other project modules.
+These tests need a local PostgreSQL that has been migrated and seeded (`npm run db:migrate && npm run db:seed`). The CI runs the whole suite that way on every Pull Request, including the concurrency test (`bookingConcurrency.test.js`).
