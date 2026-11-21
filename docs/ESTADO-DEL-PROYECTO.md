@@ -29,7 +29,7 @@ La Fase 2 ("4. Implementation Details", unas 15 páginas) abrió el **lunes 12 d
 
 Para P2, el esquema debería usar `UUID`, `TIMESTAMPTZ`, `ENUM` para los estados y el tipo de sesión, la tabla intermedia `tutor_subjects` y una restricción `EXCLUDE` sobre rangos de tiempo, que hace cumplir BR-CONF-05 directamente en la base de datos.
 
-P4 tiene la parte más difícil. Quien acabe antes, que le ayude con el frontend del calendario (FullCalendar).
+P4 tiene la parte más difícil. Quien acabe antes, que le ayude con el frontend del calendario (al final se hizo una cuadrícula semanal propia, sin FullCalendar).
 
 ---
 
@@ -200,6 +200,6 @@ npm run pdf -- ../phase2/04-implementation-details.md
 
 ## 7. Referencias rápidas de la Fase 1
 
-- **ADR 1** Node.js + Express · **ADR 2** PostgreSQL (`SELECT ... FOR UPDATE`) · **ADR 3** HTML/CSS/JS sin framework · **ADR 4** JWT en cookie HttpOnly (CORS con credenciales, `SameSite=None`, CSRF) · **ADR 5** FullCalendar · **ADR 6** SendGrid detrás de `NotificationService` · **ADR 7** Vercel + Render.
+- **ADR 1** Node.js + Express · **ADR 2** PostgreSQL (`SELECT ... FOR UPDATE`) · **ADR 3** HTML/CSS/JS sin framework · **ADR 4** JWT en cookie HttpOnly (CORS con credenciales, `SameSite=None`, CSRF) · **ADR 5** FullCalendar (al final, cuadrícula semanal propia: ver la sección 4.4) · **ADR 6** SendGrid detrás de `NotificationService` · **ADR 7** Vercel + Render.
 - **Reglas de negocio**: BR-CONF-01 (reservar con 2 h de antelación), 02 (cancelar sin penalización hasta 4 h antes), 03 (bloques de 60 min), 04 (máximo 3 reservas activas por estudiante), 05 (sin solapes, garantizado por la BD).
 - **Tipos de sesión**: Quick Check (5 min), Standard (30 min), Deep Dive (60 min). Siempre ocupan un bloque completo de 60 min.
