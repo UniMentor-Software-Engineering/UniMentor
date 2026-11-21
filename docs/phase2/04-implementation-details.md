@@ -692,7 +692,7 @@ Failures are handled according to each use case, using the same provider. After 
 
 **Drawbacks**
 
-- **More classes** for what currently is a single provider. We accept them because ADR 6 explicitly requires the boundary, and the fake provider pays for itself in the tests.
+- **More classes** than a direct SDK call, for what is in practice one provider at a time. We accept them because ADR 6 explicitly requires the boundary, the fake provider pays for itself in the tests, and the switch to Brevo (Section 4.4) showed the boundary working.
 - **The interface is a lowest common denominator.** Provider-specific features such as SendGrid's dynamic templates are not exposed; our templates are rendered in our own code.
 - **Asynchronous failures are less visible.** An email lost after the `COMMIT` does not reach the user as an error, so failures must be logged.
 - **The scheduler lives in the API process.** No extra worker is needed, but Render's free instance sleeps when idle and no reminder cycle runs while it sleeps. If one of the two reminder messages fails, both are sent again in the next cycle.
@@ -700,3 +700,19 @@ Failures are handled according to each use case, using the same provider. After 
 #### Related decisions
 
 ADR 6 (SendGrid behind a single interface), goal G5 (confirmation within 60 seconds, reminders 24 hours before with a tolerance of 15 minutes), CU-10 (retries through `reminder_sent`) and NFR-04 (maintainability).
+
+---
+
+## 4.4 Deviations from Phase 1
+
+The implementation follows the Phase 1 architecture, and the Project Proposal stack is unchanged: HTML, CSS and JavaScript on Vercel, Node.js and Express on Render, and PostgreSQL. Three decisions changed during deployment. In each case the Phase 1 ADR had already named the risk and the way out, so the change applies the ADR's own contingency instead of contradicting it. No application code outside the affected adapter or configuration had to change.
+
+| ADR | Phase 1 decision | What changed | Why | What the ADR already allowed |
+|---|---|---|---|---|
+| **ADR 7** Hosting | Vercel (frontend) and Render (backend **and database**) | The PostgreSQL database moved to a free **Supabase** project in the same region as the API (Oregon). Vercel and Render are unchanged. | Render's free PostgreSQL expires 30 days after creation, which would have deleted the pilot data. Supabase's free plan does not expire. | *"Free tiers have limits (… retention limits on free databases) that must be checked … if they are not acceptable, the API and database can move to a paid plan or another host without changing the application code."* |
+| **ADR 6** Email | SendGrid behind a single Notification Service interface | `BrevoProvider` was added and is used in production; `SendGridProvider` is kept and still works. | SendGrid replaced its permanent free plan with a 60-day trial. Brevo's free plan allows 300 emails a day, enough for the pilot. | *"The plan terms and free-tier quotas must be checked before deployment … another provider (or an SMTP fallback) can replace it without touching the business logic."* |
+| **ADR 4** JWT cookie | Cross-site `HttpOnly` cookie between Vercel and Render, with CORS and CSRF protection | Vercel forwards `/api/*` to Render, so the browser sees a single site and the cookie is first-party. | Safari, private windows and Brave dropped the cross-site cookie: the login succeeded, but the next page returned to the login screen. | *"Browsers that block third-party cookies can break this setup; serving the API under the same site (a Vercel rewrite/proxy …) is the fallback."* |
+
+**What stayed the same.** PostgreSQL remains the database (ADR 2): the same migrations, the same `SELECT … FOR UPDATE` booking transaction and the same `EXCLUDE` constraint, reached through Supabase's session pooler, which keeps each transaction on one connection. The JWT is still in an `HttpOnly; Secure` cookie, and the CORS and CSRF protections of ADR 4 are kept, so the API still works if it is called directly. The use cases, business rules and non-functional requirements of Phase 1 are unchanged, and the whole stack still costs nothing (ADR 7).
+
+**Where each change is documented.** Section 4.1.4 (the `/api` proxy and the page security policy), Section 4.1.5 (Supabase in the deployment) and Section 4.3.3 (`BrevoProvider` as a second Adapter).
