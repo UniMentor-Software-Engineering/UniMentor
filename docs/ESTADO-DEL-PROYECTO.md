@@ -49,7 +49,8 @@ P4 tiene la parte más difícil. Quien acabe antes, que le ayude con el frontend
 **Pendiente tras el despliegue (21 nov):**
 - [x] Render despliega solo en cada merge a `main` (faltaba instalar la app de Render en la organización de GitHub; comprobado con el PR #20).
 - [x] `main` protegida: PR con 1 aprobación y los dos jobs del CI en verde; sin force push ni borrado.
-- [ ] SendGrid: `SENDGRID_API_KEY` y `EMAIL_FROM` en Render. Sin ellos los emails solo salen en el log.
+- [x] Emails reales con **Brevo** (plan gratuito, 300 al día): `BREVO_API_KEY` y `EMAIL_FROM` en Render. Probado el 21 nov: el email de bienvenida llegó a Gmail. Brevo envía desde un subdominio suyo (`…@brevosend.com`) porque el remitente es un Gmail; para evitarlo haría falta un dominio propio autenticado.
+- [ ] La clave de Brevo caduca el 21 nov 2027, o antes si pasa 90 días sin usarse.
 - [x] Base de datos en **Supabase** (gratis, sin caducidad, región Oregón). La de Render caducaba el 20 de diciembre; los datos se copiaron el 21 de noviembre.
 - [x] API despierta: el workflow `keep-alive.yml` llama a `/api/health` cada 10 minutos.
 - [x] Login probado de punta a punta en producción con Chrome y Brave (registro, perfil, disponibilidad, búsqueda, reserva, cancelación, admin). Falta probarlo en Safari.
