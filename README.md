@@ -51,31 +51,102 @@ render.yaml Render Blueprint for the API (the database is on Supabase)
 
 Module notes by P4 and P5: `docs/modules/p4-bookings.md` and `docs/modules/p5-notifications.md`.
 
-## Run locally
+## Run locally (step by step)
 
-Requirements: [Node.js 22+](https://nodejs.org) and [Docker Desktop](https://www.docker.com/products/docker-desktop/) (used for PostgreSQL, so it does not have to be installed).
+These steps take about 10 minutes the first time. Commands are the same on macOS, Linux and Windows except where a step says otherwise (on Windows, use PowerShell).
 
-### macOS / Linux
+### 1. Install the requirements (once)
+
+- **Node.js 22 or newer:** https://nodejs.org
+- **Docker Desktop:** https://www.docker.com/products/docker-desktop/ (it runs PostgreSQL, so you do not have to install it)
+- **Git** (or GitHub Desktop)
+
+Check them in a terminal:
 
 ```bash
-# 1. Database (Docker Desktop must be running). The first time:
+node -v            # v22.x or newer
+docker --version   # any recent version
+```
+
+### 2. Get the code (once)
+
+```bash
+git clone https://github.com/UniMentor-Software-Engineering/UniMentor.git
+cd UniMentor
+```
+
+With GitHub Desktop: *File > Clone repository* and open a terminal in that folder. Every following command starts from this folder (the repository root).
+
+### 3. Start the database and the API
+
+Open **Docker Desktop** and wait until it says the engine is running. Then:
+
+```bash
+# Database: create the PostgreSQL container (only the first time)
 docker run -d --name unimentor-pg -e POSTGRES_USER=unimentor -e POSTGRES_PASSWORD=unimentor -e POSTGRES_DB=unimentor -p 5432:5432 postgres:17-alpine
 
-# 2. API
 cd backend
-cp .env.example .env      # creates the local configuration (see Configuration below)
-npm install
-npm run db:migrate        # creates or updates the tables (safe to run again)
-npm run db:seed           # empties the tables and loads the test data
-npm run dev               # http://localhost:3000/api/health
-
-# 3. Frontend, in a second terminal, from the repository root
-npx serve frontend -l 5500    # open http://localhost:5500
+cp .env.example .env      # local configuration (Windows: Copy-Item .env.example .env)
+npm install               # installs the dependencies
+npm run db:migrate        # creates the tables
+npm run db:seed           # loads the test data (test accounts in step 5)
+npm run dev               # starts the API
 ```
+
+You should see `UniMentor API listening on port 3000 (development)`. Leave this terminal open. To check it, open http://localhost:3000/api/health/db in the browser: it must answer `{"status":"ok","database":"up",...}`.
+
+### 4. Start the website
+
+Open a **second terminal** in the repository root and run:
+
+```bash
+npx serve frontend -l 5500
+```
+
+If it asks to install `serve`, answer `y`. Leave this terminal open too.
+
+### 5. Open it and sign in
+
+Go to **http://localhost:5500**. The landing page must show "API: online" and "Database: online". Click *Sign in* and use one of the test accounts created by `npm run db:seed`:
+
+| Email | Password | Role | Lands on |
+|---|---|---|---|
+| `admin@unimentor.edu` | `Password123!` | Administrator | `admin.html` |
+| `laura.garcia@unimentor.edu` | `Password123!` | Tutor | `dashboard.html` |
+| `carlos.martin@unimentor.edu` | `Password123!` | Tutor | `dashboard.html` |
+| `diego.student@unimentor.edu` | `Password123!` | Student | `dashboard.html` |
+
+A quick tour: as Diego, open *Find tutors*, view Laura's availability and book an hour; as Laura, publish new hours in *Availability*; as the administrator, look at the metrics and the audit log. Emails are not sent locally: they are printed in the API terminal. New accounts can register with an email from `myuax.com` or `unimentor.edu`.
+
+These accounts exist only in your local database and are for development only: the seed refuses to run in production or against a remote database unless `ALLOW_SEED_RESET=true` is set.
+
+### 6. Stop it, and start it again later
+
+- **Stop:** `Ctrl+C` in both terminals, then `docker stop unimentor-pg`.
+- **Start again** (steps 1 and 2 and the setup commands are not repeated):
+
+  ```bash
+  docker start unimentor-pg
+  cd backend && npm run dev          # first terminal
+  npx serve frontend -l 5500         # second terminal, from the repository root
+  ```
+
+- **After a `git pull`:** run `npm install` and `npm run db:migrate` in `backend/` before `npm run dev`, in case dependencies or tables changed.
+
+### 7. If something fails
+
+| Problem | Fix |
+|---|---|
+| `docker: Cannot connect to the Docker daemon` | Docker Desktop is not running: open it and wait |
+| `The container name "/unimentor-pg" is already in use` | The container already exists: use `docker start unimentor-pg` instead of `docker run` |
+| Port 5432 already in use | Another PostgreSQL is running. Map another port (`-p 5433:5432`) and change the port in `DATABASE_URL` in `backend/.env` |
+| The page shows "API: offline" or a CORS error | The API is not running (step 3), or the site is not on port **5500**: only `localhost:5500` and `127.0.0.1:5500` are allowed (`FRONTEND_ORIGIN`) |
+| "Database: offline" or errors about missing tables | Run `npm run db:migrate` (and `npm run db:seed`) in `backend/` |
+| Sign-in fails with a test account | Run `npm run db:seed` again: it reloads the test data |
 
 ### Configuration (`backend/.env`)
 
-The API reads its settings from `backend/.env`. That file is **not in the repository** (it is in `.gitignore`, because in other environments it holds secrets), so every developer creates it once from the template `backend/.env.example`, as in step 2. The template's values already match the Docker database and the ports above, so **nothing has to be edited to run the project locally**. Never commit `.env`.
+The API reads its settings from `backend/.env`. That file is **not in the repository** (it is in `.gitignore`, because in other environments it holds secrets), so every developer creates it once from the template `backend/.env.example`, as in step 3. The template's values already match the Docker database and the ports above, so **nothing has to be edited to run the project locally**. Never commit `.env`.
 
 | Variable | Local value (from `.env.example`) | Purpose |
 |---|---|---|
@@ -92,38 +163,9 @@ The API reads its settings from `backend/.env`. That file is **not in the reposi
 
 Variables used only by some commands are passed on the command line instead: `TEST_DATABASE_URL` (`npm run test:db`), `ADMIN_EMAIL` and `ADMIN_PASSWORD` (`db:create-admin`), `RESET_EMAIL` and `RESET_PASSWORD` (`db:reset-password`) and `ALLOW_SEED_RESET` (`db:seed` on a remote database). Production does not use a `.env` file: its values are set in the Render service (*Environment*), see Deployment.
 
-### Windows (PowerShell)
+### Schema changes
 
-The same steps, with `Copy-Item .env.example .env` instead of `cp`:
-
-```powershell
-docker run -d --name unimentor-pg -e POSTGRES_USER=unimentor -e POSTGRES_PASSWORD=unimentor -e POSTGRES_DB=unimentor -p 5432:5432 postgres:17-alpine
-cd backend
-Copy-Item .env.example .env
-npm install
-npm run db:migrate
-npm run db:seed
-npm run dev
-```
-
-and, in a second terminal from the repository root, `npx serve frontend -l 5500`.
-
-### Notes
-
-- **Later days:** `docker start unimentor-pg`, then `npm run dev` and `npx serve frontend -l 5500`. To stop: `Ctrl+C` in both terminals and `docker stop unimentor-pg`.
-- **Port 5500:** the frontend must run on `localhost:5500` (or `127.0.0.1:5500`), the origin allowed by CORS in `.env` (`FRONTEND_ORIGIN`). If port 5432 is taken, map another one (`-p 5433:5432`) and change it in `DATABASE_URL`.
-- **No real email locally:** without `BREVO_API_KEY` or `SENDGRID_API_KEY`, every email is only written to the API terminal.
-- **Test accounts** created by `npm run db:seed`, all with the password `Password123!`. They are for development only: the seed refuses to run in production or against a remote database unless you set `ALLOW_SEED_RESET=true`.
-
-  | Email | Role |
-  |---|---|
-  | `admin@unimentor.edu` | ADMIN |
-  | `laura.garcia@unimentor.edu` | TUTOR |
-  | `carlos.martin@unimentor.edu` | TUTOR |
-  | `diego.student@unimentor.edu` | STUDENT |
-
-  New accounts can register with an email from `ALLOWED_EMAIL_DOMAINS` (in development, by default, `myuax.com` and `unimentor.edu`).
-- **Schema changes** go in a new numbered file in `backend/src/database/migrations/` (the next one is `007_...sql`). Never edit a migration that is already in `main`: databases that applied it will not run it again.
+New tables or columns go in a new numbered file in `backend/src/database/migrations/` (the next one is `007_...sql`). Never edit a migration that is already in `main`: databases that applied it will not run it again.
 
 ## Scripts (backend)
 
