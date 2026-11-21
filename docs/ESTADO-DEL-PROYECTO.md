@@ -46,6 +46,13 @@ P4 tiene la parte más difícil. Quien acabe antes, que le ayude con el frontend
 | P5 Notificaciones e historial | ✅ CU-10, 11, 12 y `NotificationService` | ✅ dashboard | ✅ 4.3.3 | ✅ | **100 %** |
 | **Proyecto** | | | | | **100 %** |
 
+**Pendiente tras el despliegue (21 nov):**
+- [ ] Render: comprobar que **Auto-Deploy** está en *On Commit* (tras el PR #18 no desplegó solo).
+- [ ] GitHub: proteger `main` (PR obligatorio y CI en verde).
+- [ ] SendGrid: `SENDGRID_API_KEY` y `EMAIL_FROM` en Render. Sin ellos los emails solo salen en el log.
+- [ ] La PostgreSQL gratuita de Render caduca hacia el **20 de diciembre de 2026** (30 días desde su creación).
+- [x] API despierta: el workflow `keep-alive.yml` llama a `/api/health` cada 10 minutos.
+
 ---
 
 ## 3. Estado de P1: hecho
