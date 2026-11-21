@@ -19,7 +19,8 @@
     "test:load": "npx artillery@2 run tests/load/directory.yml",
     "db:migrate": "node src/database/migrate.js",
     "db:seed": "node src/database/seed.js",
-    "db:create-admin": "node src/database/createAdmin.js"
+    "db:create-admin": "node src/database/createAdmin.js",
+    "db:reset-password": "node src/database/resetPassword.js"
   },
   "keywords": [
     "tutoring",

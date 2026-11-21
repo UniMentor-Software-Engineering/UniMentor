@@ -86,6 +86,7 @@ To stop everything: `Ctrl+C` in both terminals and `docker stop unimentor-pg`.
 | `npm run db:migrate` | Applies the pending SQL migrations in `src/database/migrations/` |
 | `npm run db:seed` | Empties the tables and loads the test data (`src/database/seeds.sql`) |
 | `npm run db:create-admin` | Creates an administrator from `ADMIN_EMAIL` and `ADMIN_PASSWORD` |
+| `npm run db:reset-password` | Sets a new password for `RESET_EMAIL` from `RESET_PASSWORD` and unlocks the account |
 | `npm run lint` | Runs ESLint |
 | `npm test` | Runs the Jest test suite, with the database mocked |
 | `npm run test:coverage` | Tests + coverage report (CI requires >= 70 % lines, NFR-04) |
@@ -103,6 +104,8 @@ To stop everything: `Ctrl+C` in both terminals and `docker stop unimentor-pg`.
   $env:ADMIN_EMAIL = "<email>"; $env:ADMIN_PASSWORD = "<password>"
   npm run db:create-admin
   ```
+
+  To change a password later (the app has no screen for it), use the same variables with `RESET_EMAIL` and `RESET_PASSWORD` and run `npm run db:reset-password`. It also unlocks the account and writes `PASSWORD_RESET` to the audit log.
 
   Close that terminal afterwards so the variables disappear. Do not use `npm run db:seed` on a database with real users: it erases everything and creates accounts whose password is public.
 - **Email (ADR 6):** production uses **Brevo** (free plan, 300 emails a day). In the Render service, set `BREVO_API_KEY`, `EMAIL_FROM` (`UniMentor <address>`, a sender verified in Brevo) and `APP_URL` (the Vercel URL, for the links in emails). `SENDGRID_API_KEY` still works (SendGrid now only offers a 60-day free trial); if both keys are set, Brevo is used. Without a key, emails are only written to the Render log.
