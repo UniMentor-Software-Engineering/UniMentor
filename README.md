@@ -63,7 +63,7 @@ docker run -d --name unimentor-pg -e POSTGRES_USER=unimentor -e POSTGRES_PASSWOR
 
 # 2. API
 cd backend
-cp .env.example .env
+cp .env.example .env      # creates the local configuration (see Configuration below)
 npm install
 npm run db:migrate        # creates or updates the tables (safe to run again)
 npm run db:seed           # empties the tables and loads the test data
@@ -72,6 +72,25 @@ npm run dev               # http://localhost:3000/api/health
 # 3. Frontend, in a second terminal, from the repository root
 npx serve frontend -l 5500    # open http://localhost:5500
 ```
+
+### Configuration (`backend/.env`)
+
+The API reads its settings from `backend/.env`. That file is **not in the repository** (it is in `.gitignore`, because in other environments it holds secrets), so every developer creates it once from the template `backend/.env.example`, as in step 2. The template's values already match the Docker database and the ports above, so **nothing has to be edited to run the project locally**. Never commit `.env`.
+
+| Variable | Local value (from `.env.example`) | Purpose |
+|---|---|---|
+| `DATABASE_URL` | `postgres://unimentor:unimentor@localhost:5432/unimentor` | PostgreSQL connection (the Docker container of step 1) |
+| `DB_SSL` | `false` | `true` for databases that require SSL, such as Supabase |
+| `PORT` | `3000` | API port |
+| `JWT_SECRET` | `change-me` | Signs the session tokens. Any value works locally |
+| `FRONTEND_ORIGIN` | `http://localhost:5500,http://127.0.0.1:5500` | Origins allowed by CORS |
+| `ALLOWED_EMAIL_DOMAINS` | `myuax.com,unimentor.edu` | Email domains that can register |
+| `BREVO_API_KEY` / `SENDGRID_API_KEY` | not set | Real email. Without them, emails are printed in the API terminal |
+| `EMAIL_FROM`, `EMAIL_TIMEZONE` | template values | Sender and time zone of the emails |
+| `APP_URL` | not set (defaults to the first `FRONTEND_ORIGIN`) | Base URL of the links in emails |
+| `SCHEDULER_ENABLED` | `true` | CU-10 reminder cycle every 10 minutes (`false` turns it off) |
+
+Variables used only by some commands are passed on the command line instead: `TEST_DATABASE_URL` (`npm run test:db`), `ADMIN_EMAIL` and `ADMIN_PASSWORD` (`db:create-admin`), `RESET_EMAIL` and `RESET_PASSWORD` (`db:reset-password`) and `ALLOW_SEED_RESET` (`db:seed` on a remote database). Production does not use a `.env` file: its values are set in the Render service (*Environment*), see Deployment.
 
 ### Windows (PowerShell)
 
