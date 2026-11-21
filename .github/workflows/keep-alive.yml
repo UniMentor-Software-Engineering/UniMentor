@@ -4,10 +4,12 @@ name: Keep API awake
 # CU-10 reminder scheduler (inside the API process) does not run. This pings the health
 # endpoint every 10 minutes so the instance stays awake.
 # GitHub may delay scheduled runs at busy times, so an occasional gap is still possible.
+# The minutes are offset (:03, :13, ...) because GitHub recommends avoiding the start of
+# the hour, when scheduled runs are most often delayed or dropped.
 # Public repository: these runs do not consume Actions minutes.
 on:
   schedule:
-    - cron: '*/10 * * * *'
+    - cron: '3-59/10 * * * *'
   workflow_dispatch:
 
 jobs:
