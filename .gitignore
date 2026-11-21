@@ -21,3 +21,6 @@ Thumbs.db
 
 # Vercel local config
 .vercel/
+
+# Credentials kept on each team member's machine only (see README, Demo accounts)
+CREDENTIALS.local.md
