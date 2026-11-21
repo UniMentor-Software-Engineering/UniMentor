@@ -2,7 +2,7 @@
 
 University tutoring platform: students find tutors by subject, book sessions in a calendar without conflicts, receive email confirmations and reminders, and keep notes and feedback in a personal history.
 
-Stack: vanilla HTML/CSS/JS (Vercel) · Node.js + Express (Render) · PostgreSQL (Render). See `docs/` for the project documentation.
+Stack: vanilla HTML/CSS/JS (Vercel) · Node.js + Express (Render) · PostgreSQL (Supabase). See `docs/` for the project documentation.
 
 ## Repository layout
 
@@ -94,12 +94,12 @@ To stop everything: `Ctrl+C` in both terminals and `docker stop unimentor-pg`.
 
 ## Deployment
 
-- **Backend + database (Render):** New > Blueprint > this repository (`render.yaml`). Then set `FRONTEND_ORIGIN` to the Vercel URL. The migrations run automatically every time the API starts. Only `myuax.com` addresses can register; change `ALLOWED_EMAIL_DOMAINS` if the university uses another domain.
-- **First administrator:** run this once from your machine (PowerShell), with the database's *External Database URL*. Choose your own password of 12 or more characters, with letters and digits, and do not write it down in the repository:
+- **Backend (Render):** New > Blueprint > this repository (`render.yaml`). Then set `DATABASE_URL` (Supabase, see below) and `FRONTEND_ORIGIN` (the Vercel URL). The migrations run automatically every time the API starts. Only `myuax.com` addresses can register; change `ALLOWED_EMAIL_DOMAINS` if the university uses another domain.
+- **First administrator:** run this once from your machine (PowerShell), with the Supabase *Session pooler* connection string. Choose your own password of 12 or more characters, with letters and digits, and do not write it down in the repository:
 
   ```powershell
   cd backend
-  $env:DATABASE_URL = "<External Database URL>"; $env:DB_SSL = "true"
+  $env:DATABASE_URL = "<Supabase Session pooler URL>"; $env:DB_SSL = "true"
   $env:ADMIN_EMAIL = "<email>"; $env:ADMIN_PASSWORD = "<password>"
   npm run db:create-admin
   ```
@@ -107,7 +107,7 @@ To stop everything: `Ctrl+C` in both terminals and `docker stop unimentor-pg`.
   Close that terminal afterwards so the variables disappear. Do not use `npm run db:seed` on a database with real users: it erases everything and creates accounts whose password is public.
 - **Email (ADR 6):** production uses **Brevo** (free plan, 300 emails a day). In the Render service, set `BREVO_API_KEY`, `EMAIL_FROM` (`UniMentor <address>`, a sender verified in Brevo) and `APP_URL` (the Vercel URL, for the links in emails). `SENDGRID_API_KEY` still works (SendGrid now only offers a 60-day free trial); if both keys are set, Brevo is used. Without a key, emails are only written to the Render log.
 - **Reminders (CU-10):** the scheduler runs inside the API every 10 minutes. Render's free instance sleeps after 15 minutes without traffic and no reminders are sent while it sleeps, so the `keep-alive.yml` workflow pings `/api/health` every 10 minutes. GitHub can delay scheduled runs, so for a real pilot a paid instance is safer.
-- **Free database expiry:** Render's free PostgreSQL expires 30 days after it is created (the current one on 20 November 2026, so around 20 December 2026). Before then, upgrade it to a paid plan or create a new one and run the migrations again.
+- **Database (Supabase):** the production PostgreSQL is a free Supabase project in `us-west-2` (Oregon, next to the Render API). Unlike Render's free PostgreSQL it does not expire; it is paused only after a week with almost no database activity, which the reminder scheduler prevents. In Render, `DATABASE_URL` is the project's **Session pooler** connection string (port 5432, from *Connect* in the Supabase dashboard) and `DB_SSL=true`. The migrations run on every start, as before.
 - **Frontend (Vercel):** import the repository and set **Root Directory** to `frontend` (framework preset: Other, no build command). `frontend/vercel.json` forwards `/api/*` to the Render service, so the pages call the API on their own domain and the session cookie is not a third-party cookie (Safari and private windows block those). If the Render URL is not `https://unimentor-api.onrender.com`, change it in that rewrite.
 - **Check:** open the Vercel URL. The page must show "API: online" and "Database: online" (it shows an error if the tables are missing). Try signing in with Safari too: it may block the cross-site session cookie of ADR 4.
 

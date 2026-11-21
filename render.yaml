@@ -1,6 +1,8 @@
-# Render Blueprint (ADR 7): backend API + managed PostgreSQL.
-# In Render: New > Blueprint > select this repository. Render creates both resources
-# and redeploys the API automatically on every push to main.
+# Render Blueprint (ADR 7): the backend API. The PostgreSQL database is on Supabase
+# (free plan, no expiry), because Render's free PostgreSQL expires after 30 days.
+# In Render: New > Blueprint > select this repository, then set DATABASE_URL by hand.
+# The API redeploys automatically on every push to main that changes backend/
+# (the Render GitHub App must be installed on the organization).
 services:
   - type: web
     name: unimentor-api
@@ -16,10 +18,12 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      # Supabase "Session pooler" connection string (port 5432): it keeps each transaction on
+      # one connection, which SELECT ... FOR UPDATE needs (CU-08). Never commit its value.
       - key: DATABASE_URL
-        fromDatabase:
-          name: unimentor-db
-          property: connectionString
+        sync: false
+      - key: DB_SSL
+        value: "true"
       - key: JWT_SECRET
         generateValue: true
       # University email domains that can register (CU-01).
@@ -42,9 +46,3 @@ services:
         sync: false
       - key: EMAIL_TIMEZONE
         value: Europe/Madrid
-
-databases:
-  - name: unimentor-db
-    plan: free
-    databaseName: unimentor
-    user: unimentor
