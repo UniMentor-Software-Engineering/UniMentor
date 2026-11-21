@@ -107,7 +107,7 @@ To stop everything: `Ctrl+C` in both terminals and `docker stop unimentor-pg`.
   Close that terminal afterwards so the variables disappear. Do not use `npm run db:seed` on a database with real users: it erases everything and creates accounts whose password is public.
 - **Email (SendGrid, ADR 6):** in the Render service, set `SENDGRID_API_KEY`, `EMAIL_FROM` (a sender verified in SendGrid) and `APP_URL` (the Vercel URL, for the links in emails). Without the key, emails are only written to the Render log. Check the free plan's daily quota before the pilot.
 - **Reminders (CU-10):** the scheduler runs inside the API every 10 minutes. Render's free instance sleeps after 15 minutes without traffic and no reminders are sent while it sleeps; for the pilot, keep it awake (for example with an external uptime ping to `/api/health`) or use a paid instance.
-- **Frontend (Vercel):** import the repository and set **Root Directory** to `frontend` (framework preset: Other, no build command). Then set the Render URL in `frontend/js/config.js`.
+- **Frontend (Vercel):** import the repository and set **Root Directory** to `frontend` (framework preset: Other, no build command). `frontend/vercel.json` forwards `/api/*` to the Render service, so the pages call the API on their own domain and the session cookie is not a third-party cookie (Safari and private windows block those). If the Render URL is not `https://unimentor-api.onrender.com`, change it in that rewrite.
 - **Check:** open the Vercel URL. The page must show "API: online" and "Database: online" (it shows an error if the tables are missing). Try signing in with Safari too: it may block the cross-site session cookie of ADR 4.
 
 ## Documentation PDFs

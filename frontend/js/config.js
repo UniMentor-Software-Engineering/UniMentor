@@ -1,7 +1,10 @@
 // Base URL of the backend API.
-// Local development: Express on port 3000. Production: the Render service (ADR 7).
-// TODO: replace the production URL with the real one after creating the Render service.
-const PRODUCTION_API_URL = 'https://unimentor-api.onrender.com/api';
+// Local development: Express on port 3000.
+// Production: the same site. vercel.json forwards /api/* to the Render service (ADR 7), so
+// the browser only talks to the Vercel domain and the session cookie is first-party.
+// With the API on another site, browsers that block third-party cookies (Safari, private
+// windows) dropped the cookie and every page after the login went back to login.html.
+const PRODUCTION_API_URL = '/api';
 const LOCAL_API_URL = 'http://localhost:3000/api';
 
 const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
