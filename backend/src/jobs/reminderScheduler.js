@@ -9,6 +9,8 @@
 //
 // It runs inside the API process with setInterval (no extra dependency or worker).
 // Limitation: Render's free instance sleeps when idle, and no cycle runs while it sleeps.
+// In production, Supabase calls /api/health every 10 minutes to keep it awake
+// (src/database/supabase/keep-alive.sql).
 // The dashboard completes finished sessions on its own, but reminders need the process awake.
 const appointmentRepository = require('../repositories/appointmentRepository');
 const notifications = require('../notifications');

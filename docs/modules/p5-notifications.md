@@ -43,7 +43,7 @@ All except the reminder run after the `COMMIT` through `notifyInBackground()`: t
 3. For each one, `sendReminder()` sends both messages; only if both are accepted, `markReminderSent()`.
 4. A1: on an error the appointment is logged and stays queued for the next cycle. Two cycles never overlap.
 
-A 10-minute period keeps reminders inside the ±15 minute tolerance of goal G5. The timer runs in the API process (`SCHEDULER_ENABLED=false` disables it). Render's free instance sleeps after 15 minutes without traffic, so for the pilot it must be kept awake or moved to a paid instance; otherwise reminders are delayed until the next request wakes it.
+A 10-minute period keeps reminders inside the ±15 minute tolerance of goal G5. The timer runs in the API process (`SCHEDULER_ENABLED=false` disables it). Render's free instance sleeps after 15 minutes without traffic, and no cycle runs while it sleeps. In production the Supabase database calls `/api/health` every 10 minutes (`pg_cron` and `pg_net`, set up with `backend/src/database/supabase/keep-alive.sql`) so the instance stays awake; a paid instance would make that unnecessary.
 
 ## 5. API
 
