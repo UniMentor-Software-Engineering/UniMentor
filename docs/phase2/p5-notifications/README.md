@@ -7,7 +7,7 @@
 | CU-10 | Automated Reminders Dispatch | Scheduler every 10 minutes; reminder to both participants of confirmed sessions starting within 24 hours; `reminder_sent` set only after the provider accepts. |
 | CU-11 | Personal Dashboard Management | `dashboard.html` (`/dashboard` on Vercel): upcoming sessions and history from `GET /api/appointments/me`. Finished sessions become `COMPLETED`. |
 | CU-12 | Post-Session Notes and Rating | Tutor notes and a single 1–5 rating with optional feedback, only after the session has ended. |
-| ADR 6 | Notification Service | `NotificationService` with an interchangeable provider: SendGrid (Adapter) or console (development/tests). Used by CU-01, CU-08, CU-09, CU-10 and CU-13. |
+| ADR 6 | Notification Service | `NotificationService` with an interchangeable provider: Brevo or SendGrid (Adapters) or console (development/tests). Used by CU-01, CU-08, CU-09, CU-10 and CU-13. |
 
 The design is explained in section 4.3.3 of `04-implementation-details.md` (Adapter and Strategy).
 
@@ -17,6 +17,7 @@ The design is explained in section 4.3.3 of `04-implementation-details.md` (Adap
 |---|---|
 | `backend/src/notifications/NotificationService.js` | Context: `sendWelcome`, `sendBookingConfirmation`, `sendCancellationNotice`, `sendReminder`, `notifyInBackground` |
 | `backend/src/notifications/providers/SendGridProvider.js` | Adapter for the SendGrid v3 Mail Send API (built-in `fetch`, 10 s timeout, success = HTTP 202) |
+| `backend/src/notifications/providers/BrevoProvider.js` | Adapter for the Brevo v3 transactional email API (built-in `fetch`, 10 s timeout, success = HTTP 201). Used in production: Brevo's free plan allows 300 emails a day, while SendGrid only offers a 60-day trial |
 | `backend/src/notifications/providers/ConsoleProvider.js` | Writes the email to the log; silent under Jest; keeps the last messages for tests |
 | `backend/src/notifications/templates.js` | Plain-text + HTML templates; user text is escaped; times in `EMAIL_TIMEZONE` |
 | `backend/src/notifications/index.js` | Chooses the provider once from the configuration |
