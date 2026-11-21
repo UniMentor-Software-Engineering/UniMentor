@@ -50,7 +50,7 @@ P4 tiene la parte más difícil. Quien acabe antes, que le ayude con el frontend
 - [x] Render despliega solo en cada merge a `main` (faltaba instalar la app de Render en la organización de GitHub; comprobado con el PR #20).
 - [x] `main` protegida: PR con 1 aprobación y los dos jobs del CI en verde; sin force push ni borrado.
 - [ ] SendGrid: `SENDGRID_API_KEY` y `EMAIL_FROM` en Render. Sin ellos los emails solo salen en el log.
-- [ ] La PostgreSQL gratuita de Render caduca hacia el **20 de diciembre de 2026** (30 días desde su creación).
+- [x] Base de datos en **Supabase** (gratis, sin caducidad, región Oregón). La de Render caducaba el 20 de diciembre; los datos se copiaron el 21 de noviembre.
 - [x] API despierta: el workflow `keep-alive.yml` llama a `/api/health` cada 10 minutos.
 - [x] Login probado de punta a punta en producción con Chrome y Brave (registro, perfil, disponibilidad, búsqueda, reserva, cancelación, admin). Falta probarlo en Safari.
 - [x] Vercel reenvía `/api/*` a Render, así que la cookie de sesión es del propio sitio y los navegadores que bloquean cookies de terceros ya no la descartan.
@@ -76,7 +76,7 @@ Fusionado en `main` con el **PR #4** (rama `feature/p1-skeleton`). El CI pasó e
 
 **Infraestructura**:
 - `.github/workflows/ci.yml`: en cada PR y en cada push a `main` ejecuta lint, tests con cobertura y `npm audit`.
-- `render.yaml`: configuración de Render para la API y PostgreSQL.
+- `render.yaml`: configuración de Render para la API (la base de datos está en Supabase).
 
 **Documentación**:
 - `docs/phase2/04-implementation-details.md` y su `.pdf`: la sección 4.1 Project Structure (5 páginas, con el mismo estilo que los PDFs de la Fase 1).
