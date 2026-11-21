@@ -3,6 +3,9 @@ name: Keep API awake
 # Render's free instance sleeps after 15 minutes without traffic, and while it sleeps the
 # CU-10 reminder scheduler (inside the API process) does not run. This pings the health
 # endpoint every 10 minutes so the instance stays awake.
+# BACKUP ONLY: the main keep-alive is a pg_cron job in the Supabase database
+# (backend/src/database/supabase/keep-alive.sql), because GitHub did not start these
+# scheduled runs for hours after the workflow was added.
 # GitHub may delay scheduled runs at busy times, so an occasional gap is still possible.
 # The minutes are offset (:03, :13, ...) because GitHub recommends avoiding the start of
 # the hour, when scheduled runs are most often delayed or dropped.

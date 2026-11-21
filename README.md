@@ -47,10 +47,10 @@ The administrator account is not published here: ask the team for it. Team membe
 | | Artillery 2 | Load test (NFR-01) |
 | | OWASP ZAP | Security baseline scan of the live site (NFR-02) |
 | | `npm audit` | Vulnerable dependencies, checked in CI |
-| **CI/CD** | GitHub Actions | Lint, tests and audit on every Pull Request; API keep-alive ping |
+| **CI/CD** | GitHub Actions | Lint, tests and audit on every Pull Request; backup API keep-alive ping |
 | **Hosting** (ADR 7, all free plans) | Vercel | Static frontend and the `/api` proxy |
 | | Render | Node.js API (Oregon) |
-| | Supabase | PostgreSQL database (Oregon) |
+| | Supabase | PostgreSQL database (Oregon); its `pg_cron` and `pg_net` extensions keep the API awake |
 | | Brevo | Transactional email (300 a day) |
 | **Development** | Docker | Local PostgreSQL |
 | | nodemon 3 | Restarts the API on file changes |
@@ -64,7 +64,7 @@ backend/    REST API (Express, layered: routes -> controllers -> services -> rep
 frontend/   Static site (HTML, CSS, JS modules). All API calls go through js/api.js
 docs/       phase1/ (Phase 1 PDFs), phase2/ (Phase 2 document and PDF),
             modules/ (P4 and P5 notes), build/ (Markdown-to-PDF tool)
-.github/    GitHub Actions: CI on every Pull Request and the API keep-alive ping
+.github/    GitHub Actions: CI on every Pull Request and a backup API keep-alive ping
 render.yaml Render Blueprint for the API (the database is on Supabase)
 ```
 
@@ -227,7 +227,7 @@ Production: frontend on Vercel, API on Render (Oregon), PostgreSQL on Supabase (
 
   In PowerShell, set the variables first with `$env:NAME = "value"`. To change a password later (the app has no screen for it), use `RESET_EMAIL` and `RESET_PASSWORD` with `npm run db:reset-password`. It also unlocks the account and writes `PASSWORD_RESET` to the audit log. Never use `npm run db:seed` on a database with real users: it erases everything and creates accounts whose password is public.
 - **Email (ADR 6):** production uses **Brevo** (free plan, 300 emails a day). In the Render service, set `BREVO_API_KEY`, `EMAIL_FROM` (`UniMentor <address>`, a sender verified in Brevo) and `APP_URL` (the Vercel URL, for the links in emails). `SENDGRID_API_KEY` still works (SendGrid now only offers a 60-day free trial); if both keys are set, Brevo is used. Without a key, emails are only written to the Render log. A Brevo API key expires after 90 days without use.
-- **Reminders (CU-10):** the scheduler runs inside the API every 10 minutes. Render's free instance sleeps after 15 minutes without traffic and no reminders are sent while it sleeps, so the `keep-alive.yml` workflow pings `/api/health` every 10 minutes. GitHub can delay scheduled runs, so for a real pilot a paid instance is safer.
+- **Reminders (CU-10) and keep-alive:** the scheduler runs inside the API every 10 minutes. Render's free instance sleeps after 15 minutes without traffic and no reminders are sent while it sleeps, so **the Supabase database calls `/api/health` every 10 minutes** with the `pg_cron` and `pg_net` extensions (job `unimentor-keep-alive`). It is set up once with `backend/src/database/supabase/keep-alive.sql`, which also explains how to check and remove it; it is not a migration because the local PostgreSQL has no such extensions. The `keep-alive.yml` GitHub workflow does the same as a backup, but GitHub's scheduled runs proved unreliable. For a real pilot, a paid Render instance avoids the issue.
 - **Frontend (Vercel):** import the repository and set **Root Directory** to `frontend` (framework preset: Other, no build command). `frontend/vercel.json` forwards `/api/*` to the Render service, so the pages call the API on their own domain and the session cookie is first-party (browsers that block third-party cookies, such as Safari, would drop it otherwise). If the Render URL is not `https://unimentor-api.onrender.com`, change it in that rewrite.
 - **Check:** open the Vercel URL. The page must show "API: online" and "Database: online" (it shows an error if the tables are missing).
 

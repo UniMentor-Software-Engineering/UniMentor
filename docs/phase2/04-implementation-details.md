@@ -696,7 +696,7 @@ Failures are handled according to each use case, using the same provider. After 
 - **More classes** than a direct SDK call, for what is in practice one provider at a time. We accept them because ADR 6 explicitly requires the boundary, the fake provider pays for itself in the tests, and the switch to Brevo (Section 4.4) showed the boundary working.
 - **The interface is a lowest common denominator.** Provider-specific features such as SendGrid's dynamic templates are not exposed; our templates are rendered in our own code.
 - **Asynchronous failures are less visible.** An email lost after the `COMMIT` does not reach the user as an error, so failures must be logged.
-- **The scheduler lives in the API process.** No extra worker is needed, but Render's free instance sleeps when idle and no reminder cycle runs while it sleeps. If one of the two reminder messages fails, both are sent again in the next cycle.
+- **The scheduler lives in the API process.** No extra worker is needed, but Render's free instance sleeps when idle and no reminder cycle runs while it sleeps. In production the Supabase database pings the API every 10 minutes (`pg_cron` and `pg_net`) to keep it awake. If one of the two reminder messages fails, both are sent again in the next cycle.
 
 #### Related decisions
 
