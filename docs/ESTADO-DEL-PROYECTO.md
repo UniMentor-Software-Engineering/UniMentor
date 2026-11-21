@@ -35,16 +35,16 @@ P4 tiene la parte más difícil. Quien acabe antes, que le ayude con el frontend
 
 ## Resumen de avance (20 nov)
 
-> **Todo el código de P1–P5 está en `main`** (PRs #13–#16). Después de `git pull`, ejecutar `npm install` y `npm run db:migrate` en `backend/`. Lo único pendiente es el despliegue en Render y Vercel (P1, ver la sección 4).
+> **Todo el código de P1–P5 está en `main`** (PRs #13–#16). Después de `git pull`, ejecutar `npm install` y `npm run db:migrate` en `backend/`. **Desplegado** (21 nov): web en https://unimentor-uax.vercel.app y API en https://unimentor-api.onrender.com. La migración 006 carga el catálogo de asignaturas en producción.
 
 | Parte | Backend + tests | Frontend | Documento | Revisión / despliegue | **Avance** |
 |---|---|---|---|---|---|
-| P1 Estructura e integración | ✅ | ✅ | ✅ 4.1 | ❌ despliegue en Render y Vercel | **~90 %** |
+| P1 Estructura e integración | ✅ | ✅ | ✅ 4.1 | ✅ desplegado en Render y Vercel | **100 %** |
 | P2 BD y búsqueda | ✅ | ✅ | ✅ 4.2 | ✅ | **100 %** |
 | P3 Autenticación y admin | ✅ (conexiones con P5 hechas) | ✅ | ✅ 4.3.1 | ✅ | **100 %** |
 | P4 Reservas | ✅ CU-04, 05, 07, 08, 09 y test de concurrencia | ✅ | ✅ 4.3.2 | ✅ | **100 %** |
 | P5 Notificaciones e historial | ✅ CU-10, 11, 12 y `NotificationService` | ✅ dashboard | ✅ 4.3.3 | ✅ | **100 %** |
-| **Proyecto** | | | | | **~98 %** |
+| **Proyecto** | | | | | **100 %** |
 
 ---
 
